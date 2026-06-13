@@ -199,7 +199,7 @@
       { x: 950, y: 220 },
     ];
 
-    // Level: Goombas
+    // Level: Goombas (default — can be overridden by WorldConfig)
     const GOOMBA_CONFIGS = [
       {
         platformIndex: 2,
@@ -218,19 +218,172 @@
     ];
 
     // =====================================================
+    // 1.1 WORLD CONFIGURATION (NEU — Phase 1: WorldConfig)
+    // =====================================================
+    const WorldConfig = {
+      jungle: {
+        id: 1,
+        name: "Dschungel",
+        colors: {
+          sky: "#1a472a",
+          skyGradient: "#2d5a3f",
+          ground: "#3d2b1f",
+          platform: "#8B6914",
+          platformHighlight: "#A0822A",
+          platformShadow: "#6B5310",
+          background: "#0d2818",
+          particle: "#4CAF50",
+          accent: "#FFD700"
+        },
+        background: {
+          trees: true,
+          vines: true,
+          clouds: true,
+          particles: "leaves",
+          parallaxLayers: 2
+        },
+        enemyTheme: "barrel",
+        platformTheme: "wood",
+        layout: {
+          platforms: [
+            { x: 0,     y: 360, width: 1600 },
+            { x: 400,   y: 280, width: 200 },
+            { x: 100,   y: 200, width: 250 },
+            { x: 450,   y: 160, width: 300 },
+            { x: 850,   y: 240, width: 400 },
+          ],
+          bananas: [
+            { x: 50,  y: 340 }, { x: 150, y: 340 }, { x: 300, y: 340 },
+            { x: 450, y: 260 }, { x: 550, y: 260 },
+            { x: 150, y: 180 }, { x: 250, y: 180 },
+            { x: 500, y: 140 }, { x: 650, y: 140 },
+            { x: 950, y: 220 },
+          ],
+          goombas: [
+            { platformIndex: 2, x: 150, y: 176, speed: 1.5, patrolLeft: 100, patrolRight: 330 },
+            { platformIndex: 4, x: 900, y: 216, speed: 2.0, patrolLeft: 850, patrolRight: 1230 },
+          ]
+        }
+      },
+
+      snow: {
+        id: 2,
+        name: "Schnee",
+        colors: {
+          sky: "#4a6fa5",
+          skyGradient: "#8ba4c7",
+          ground: "#c8d6e5",
+          platform: "#7f8fa6",
+          platformHighlight: "#a4b0be",
+          platformShadow: "#576574",
+          background: "#2c3e50",
+          particle: "#dfe6e9",
+          accent: "#74b9ff"
+        },
+        background: {
+          trees: false,
+          vines: false,
+          clouds: true,
+          mountains: true,
+          particles: "snow",
+          parallaxLayers: 3
+        },
+        enemyTheme: "penguin",
+        platformTheme: "ice",
+        layout: {
+          platforms: [
+            { x: 0,     y: 360, width: 350 },
+            { x: 300,   y: 300, width: 150 },
+            { x: 500,   y: 240, width: 200 },
+            { x: 200,   y: 180, width: 250 },
+            { x: 550,   y: 140, width: 300 },
+          ],
+          bananas: [
+            { x: 50,  y: 340 }, { x: 150, y: 340 },
+            { x: 350, y: 280 },
+            { x: 550, y: 220 }, { x: 650, y: 220 },
+            { x: 250, y: 160 }, { x: 350, y: 160 },
+            { x: 600, y: 120 }, { x: 750, y: 120 },
+          ],
+          goombas: [
+            { platformIndex: 2, x: 550, y: 216, speed: 1.8, patrolLeft: 500, patrolRight: 680 },
+            { platformIndex: 4, x: 600, y: 116, speed: 2.2, patrolLeft: 550, patrolRight: 830 },
+          ]
+        }
+      },
+
+      desert: {
+        id: 3,
+        name: "Wueste",
+        colors: {
+          sky: "#e17055",
+          skyGradient: "#fdcb6e",
+          ground: "#d4a574",
+          platform: "#b8860b",
+          platformHighlight: "#daa520",
+          platformShadow: "#8b6914",
+          background: "#6b3a2a",
+          particle: "#fdcb6e",
+          accent: "#e17055"
+        },
+        background: {
+          trees: false,
+          vines: false,
+          clouds: false,
+          dunes: true,
+          pyramids: true,
+          particles: "sand",
+          parallaxLayers: 2
+        },
+        enemyTheme: "scorpion",
+        platformTheme: "stone",
+        layout: {
+          platforms: [
+            { x: 0,     y: 360, width: 450 },
+            { x: 400,   y: 300, width: 180 },
+            { x: 650,   y: 240, width: 220 },
+            { x: 150,   y: 180, width: 200 },
+            { x: 500,   y: 140, width: 280 },
+          ],
+          bananas: [
+            { x: 50,  y: 340 }, { x: 200, y: 340 }, { x: 350, y: 340 },
+            { x: 450, y: 280 },
+            { x: 700, y: 220 }, { x: 800, y: 220 },
+            { x: 200, y: 160 }, { x: 300, y: 160 },
+            { x: 550, y: 120 }, { x: 700, y: 120 },
+          ],
+          goombas: [
+            { platformIndex: 2, x: 700, y: 216, speed: 2.0, patrolLeft: 650, patrolRight: 850 },
+            { platformIndex: 4, x: 550, y: 116, speed: 1.5, patrolLeft: 500, patrolRight: 760 },
+          ]
+        }
+      }
+    };
+
+    // World keys array for indexed access
+    const WORLD_KEYS = ['jungle', 'snow', 'desert'];
+
+    // Helper: Get world config by index (0=jungle, 1=snow, 2=desert)
+    function getWorldConfig(worldIndex) {
+      const key = WORLD_KEYS[worldIndex] || WORLD_KEYS[0];
+      return WorldConfig[key];
+    }
+
+    // =====================================================
     // 2. GAME STATE
     // =====================================================
     const GameState = {
-      state: 'play',       // 'play' | 'gameover'
+      state: 'menu',       // 'menu' | 'play' | 'gameover'
       score: 0,
       lives: 3,
       bananasTotal: 10,
-      bananasCollected: 0
+      bananasCollected: 0,
+      currentWorld: 0      // 0=jungle, 1=snow, 2=desert
     };
 
     const Player = {
       x: 50,
-      y: 300,
+      y: 328,
       vx: 0,
       vy: 0,
       width: PLAYER_WIDTH,
@@ -242,7 +395,7 @@
       invulnerable: 0,
       visible: true,
       spawnX: 50,
-      spawnY: 300
+      spawnY: 328
     };
 
     let platforms = [];
@@ -261,7 +414,8 @@
       keys: {
         left: false,
         right: false,
-        jump: false
+        jump: false,
+        confirm: false   // Enter key for menu confirmation
       },
 
       init() {
@@ -284,6 +438,10 @@
             this.keys.jump = true;
             e.preventDefault();
             break;
+          case 'Enter':
+            this.keys.confirm = true;
+            e.preventDefault();
+            break;
         }
       },
 
@@ -299,11 +457,133 @@
           case 'ArrowUp':
             this.keys.jump = false;
             break;
+          case 'Enter':
+            this.keys.confirm = false;
+            break;
         }
       },
 
       isPressed(key) {
         return this.keys[key] === true;
+      }
+    };
+
+    // =====================================================
+    // 3.1 MENU MANAGER (NEU — Phase 5: World Selection Menu)
+    // =====================================================
+
+    /**
+     * MenuManager handles the World Selection Screen.
+     * Displays 3 world cards, navigable with arrow keys, confirmable with Enter.
+     */
+    const MenuManager = {
+      selectedIndex: 0,
+      CONFIRM_DEBOUNCE: false,  // Prevent repeated confirm on held Enter
+
+      /**
+       * Draw the world selection menu screen
+       */
+      draw(ctx) {
+        const cardW = 160;
+        const cardH = 140;
+        const gap = 30;
+        const totalW = 3 * cardW + 2 * gap;
+        const startX = (CANVAS_WIDTH - totalW) / 2;
+        const startY = 120;
+
+        // Dark overlay
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        // Title
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 32px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('WELT AUSWAHLEN', CANVAS_WIDTH / 2, 60);
+
+        // Subtitle
+        ctx.fillStyle = '#aaa';
+        ctx.font = '14px Courier New';
+        ctx.fillText('Pfeiltasten navigieren | Enter bestatigen', CANVAS_WIDTH / 2, 90);
+
+        // Draw world cards
+        for (let i = 0; i < 3; i++) {
+          const wc = getWorldConfig(i);
+          const cx = startX + i * (cardW + gap);
+          const selected = (i === this.selectedIndex);
+
+          // Card background
+          ctx.fillStyle = selected ? '#ffd700' : wc.colors.sky;
+          ctx.fillRect(cx, startY, cardW, cardH);
+
+          // Card border
+          ctx.strokeStyle = selected ? '#fff' : '#555';
+          ctx.lineWidth = selected ? 4 : 2;
+          ctx.strokeRect(cx, startY, cardW, cardH);
+
+          // World name
+          ctx.fillStyle = selected ? '#000' : '#fff';
+          ctx.font = 'bold 18px Courier New';
+          ctx.textAlign = 'center';
+          ctx.fillText(wc.name, cx + cardW / 2, startY + 30);
+
+          // Mini preview: draw a small platform sample
+          const previewY = startY + 55;
+          ctx.fillStyle = wc.colors.platform;
+          ctx.fillRect(cx + 20, previewY, cardW - 40, 10);
+          ctx.fillStyle = wc.colors.platformHighlight;
+          ctx.fillRect(cx + 20, previewY, cardW - 40, 3);
+
+          // Mini preview: draw a small banana
+          ctx.fillStyle = '#FFD700';
+          ctx.fillRect(cx + cardW / 2 - 4, previewY - 16, 8, 12);
+
+          // Mini preview: draw enemy dot
+          ctx.fillStyle = wc.colors.accent;
+          ctx.fillRect(cx + cardW / 2 - 3, previewY + 20, 6, 6);
+
+          // World ID badge
+          ctx.fillStyle = selected ? '#000' : wc.colors.accent;
+          ctx.font = '12px Courier New';
+          ctx.fillText(`Welt ${wc.id}`, cx + cardW / 2, startY + cardH - 15);
+
+          // Selection arrow indicator
+          if (selected) {
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 24px Courier New';
+            ctx.fillText('▼', cx + cardW / 2, startY - 10);
+          }
+        }
+
+        ctx.textAlign = 'left'; // Reset
+      },
+
+      /**
+       * Handle menu input (only active when GameState.state === 'menu')
+       */
+      handleInput() {
+        if (Input.isPressed('left')) {
+          if (this.selectedIndex > 0) this.selectedIndex--;
+        }
+        if (Input.isPressed('right')) {
+          if (this.selectedIndex < 2) this.selectedIndex++;
+        }
+        if (Input.isPressed('confirm') && !this.CONFIRM_DEBOUNCE) {
+          this.CONFIRM_DEBOUNCE = true;
+          this.confirm();
+        }
+        if (!Input.isPressed('confirm')) {
+          this.CONFIRM_DEBOUNCE = false;
+        }
+      },
+
+      /**
+       * Confirm the selected world and start the game
+       */
+      confirm() {
+        GameState.currentWorld = this.selectedIndex;
+        GameState.state = 'play';
+        reset();
       }
     };
 
@@ -348,6 +628,16 @@
     // 4.1 DRAWING FUNCTIONS
     // =====================================================
 
+    // =====================================================
+    // 2.1 ENHANCED DK PIXEL-ART (NEU — Phase 2: Enhanced DK)
+    // =====================================================
+
+    /**
+     * Enhanced DK Pixel-Art with necklace, animations, and world-specific colors.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Object} p - Player entity
+     * @param {number} camX - Camera X offset
+     */
     function drawPlayer(ctx, p, camX) {
       // Invulnerability blink effect
       if (p.invulnerable > 0) {
@@ -368,80 +658,273 @@
       const drawX = p.x - camX;
       const drawY = p.y;
 
-      // Pixel-Art DK (brown gorilla)
-      const brown = '#8B4513';
-      const darkBrown = '#5C3317';
-      const skin = '#DEB887';
-      const black = '#000';
+      // Color palette (uses world colors if available, falls back to jungle defaults)
+      const wc = getWorldConfig(GameState.currentWorld).colors;
+      const B = '#8B4513';       // Brown (body)
+      const D = '#5C3317';       // Dark brown (legs, details)
+      const F = '#DEB887';       // Face skin color
+      const R = '#cc0000';       // Red (shoes, necklace)
+      const W = '#ffffff';       // White (DK letters)
+      const K = '#000';          // Black (eyes, pupils)
 
-      // Body
-      ctx.fillStyle = brown;
-      ctx.fillRect(drawX + 6, drawY + 10, 20, 14);
+      // Determine animation state
+      const isJumping = !p.onGround;
+      const isWalking = p.vx !== 0;
+      const walkCycle = isWalking ? (Math.floor(p.animFrame) % 4) : 0;
+      const idleCycle = !isWalking && !isJumping ? (Math.floor(Date.now() / 600) % 2) : 0;
 
-      // Head
-      ctx.fillStyle = brown;
-      ctx.fillRect(drawX + 8, drawY, 16, 14);
+      // --- HEAD (large brown ape head) ---
+      // Head base
+      ctx.fillStyle = B;
+      ctx.fillRect(drawX + 4, drawY, 24, 16);
 
-      // Face (skin)
-      ctx.fillStyle = skin;
-      ctx.fillRect(drawX + 10, drawY + 4, 12, 8);
+      // Head top (hair/rounding)
+      ctx.fillRect(drawX + 6, drawY - 2, 20, 4);
+
+      // Ears
+      ctx.fillStyle = D;
+      ctx.fillRect(drawX + 2, drawY + 4, 4, 6);   // Left ear
+      ctx.fillRect(drawX + 26, drawY + 4, 4, 6);   // Right ear
+
+      // Face (light skin area)
+      ctx.fillStyle = F;
+      ctx.fillRect(drawX + 8, drawY + 4, 16, 10);
 
       // Eyes
-      ctx.fillStyle = black;
-      if (p.facing === 'right') {
-        ctx.fillRect(drawX + 16, drawY + 5, 3, 3);
-        ctx.fillRect(drawX + 20, drawY + 5, 3, 3);
-      } else {
-        ctx.fillRect(drawX + 10, drawY + 5, 3, 3);
-        ctx.fillRect(drawX + 14, drawY + 5, 3, 3);
-      }
+      ctx.fillStyle = W;
+      const eyeOff = p.facing === 'right' ? 2 : -2;
+      ctx.fillRect(drawX + 12 + eyeOff, drawY + 6, 4, 4);  // Left eye
+      ctx.fillRect(drawX + 18 + eyeOff, drawY + 6, 4, 4);  // Right eye
+
+      // Pupils
+      ctx.fillStyle = K;
+      const pupilOff = p.facing === 'right' ? 3 : 1;
+      ctx.fillRect(drawX + 13 + pupilOff, drawY + 7, 2, 3);  // Left pupil
+      ctx.fillRect(drawX + 19 + pupilOff, drawY + 7, 2, 3);  // Right pupil
+
+      // Nose
+      ctx.fillStyle = D;
+      ctx.fillRect(drawX + 15, drawY + 10, 4, 2);
 
       // Mouth
-      ctx.fillStyle = darkBrown;
-      ctx.fillRect(drawX + 14, drawY + 10, 4, 2);
+      ctx.fillStyle = K;
+      ctx.fillRect(drawX + 13, drawY + 13, 8, 1);
 
-      // Arms
-      ctx.fillStyle = brown;
-      ctx.fillRect(drawX + 2, drawY + 12, 6, 8);
-      ctx.fillRect(drawX + 24, drawY + 12, 6, 8);
+      // --- BODY (thick with broad shoulders) ---
+      ctx.fillStyle = B;
+      ctx.fillRect(drawX + 4, drawY + 16, 24, 10);
 
-      // Legs with walk animation
-      ctx.fillStyle = darkBrown;
-      if (p.vx !== 0 && Math.floor(p.animFrame) % 2 === 1) {
-        // Walking - alternate legs
-        ctx.fillRect(drawX + 8, drawY + 24, 6, 8);
-        ctx.fillRect(drawX + 18, drawY + 22, 6, 6);
+      // Chest (lighter)
+      ctx.fillStyle = F;
+      ctx.fillRect(drawX + 10, drawY + 16, 12, 6);
+
+      // --- NECKLACE (red bandana with "DK" letters) ---
+      ctx.fillStyle = R;
+      ctx.fillRect(drawX + 6, drawY + 14, 20, 4);
+
+      // "DK" letters on necklace
+      ctx.fillStyle = W;
+      // D
+      ctx.fillRect(drawX + 9, drawY + 15, 3, 2);
+      ctx.fillRect(drawX + 12, drawY + 15, 1, 2);
+      // K
+      ctx.fillRect(drawX + 14, drawY + 15, 1, 2);
+      ctx.fillRect(drawX + 15, drawY + 15, 2, 1);
+
+      // --- ARMS ---
+      ctx.fillStyle = B;
+      if (isJumping) {
+        // Jump: arms raised above head
+        ctx.fillRect(drawX, drawY + 6, 6, 10);   // Left arm up
+        ctx.fillRect(drawX + 26, drawY + 6, 6, 10); // Right arm up
+        // Hands
+        ctx.fillStyle = F;
+        ctx.fillRect(drawX, drawY + 4, 6, 4);
+        ctx.fillRect(drawX + 26, drawY + 4, 6, 4);
+      } else if (isWalking) {
+        // Walk: arms swinging
+        if (walkCycle < 2) {
+          ctx.fillRect(drawX, drawY + 14, 6, 10);  // Left arm forward
+          ctx.fillRect(drawX + 26, drawY + 18, 6, 8); // Right arm back
+        } else {
+          ctx.fillRect(drawX, drawY + 18, 6, 8);    // Left arm back
+          ctx.fillRect(drawX + 26, drawY + 14, 6, 10); // Right arm forward
+        }
+        // Hands
+        ctx.fillStyle = F;
+        if (walkCycle < 2) {
+          ctx.fillRect(drawX, drawY + 12, 6, 4);
+          ctx.fillRect(drawX + 26, drawY + 16, 6, 4);
+        } else {
+          ctx.fillRect(drawX, drawY + 16, 6, 4);
+          ctx.fillRect(drawX + 26, drawY + 12, 6, 4);
+        }
       } else {
-        // Standing / idle
-        ctx.fillRect(drawX + 8, drawY + 24, 6, 8);
-        ctx.fillRect(drawX + 18, drawY + 24, 6, 8);
+        // Idle: arms at sides with slight sway
+        const idleShift = idleCycle === 0 ? 0 : 2;
+        ctx.fillRect(drawX, drawY + 16 + idleShift, 6, 8);
+        ctx.fillRect(drawX + 26, drawY + 16 + (idleCycle === 0 ? 2 : 0), 6, 8);
+        // Hands
+        ctx.fillStyle = F;
+        ctx.fillRect(drawX, drawY + 14 + idleShift, 6, 4);
+        ctx.fillRect(drawX + 26, drawY + 14 + (idleCycle === 0 ? 2 : 0), 6, 4);
       }
 
-      // Shoes
-      ctx.fillStyle = '#cc0000';
-      ctx.fillRect(drawX + 6, drawY + 30, 8, 2);
-      ctx.fillRect(drawX + 18, drawY + 30, 8, 2);
+      // --- LEGS ---
+      ctx.fillStyle = D;
+      if (isJumping) {
+        // Jump: legs tucked up
+        ctx.fillRect(drawX + 6, drawY + 24, 7, 6);
+        ctx.fillRect(drawX + 19, drawY + 24, 7, 6);
+      } else if (isWalking) {
+        // Walk: alternating legs (4-frame cycle)
+        if (walkCycle === 0) {
+          ctx.fillRect(drawX + 6, drawY + 26, 7, 6);
+          ctx.fillRect(drawX + 19, drawY + 24, 7, 6);
+        } else if (walkCycle === 1) {
+          ctx.fillRect(drawX + 6, drawY + 24, 7, 6);
+          ctx.fillRect(drawX + 19, drawY + 26, 7, 6);
+        } else if (walkCycle === 2) {
+          ctx.fillRect(drawX + 6, drawY + 26, 7, 6);
+          ctx.fillRect(drawX + 19, drawY + 24, 7, 6);
+        } else {
+          ctx.fillRect(drawX + 6, drawY + 24, 7, 6);
+          ctx.fillRect(drawX + 19, drawY + 26, 7, 6);
+        }
+      } else {
+        // Idle: legs straight
+        ctx.fillRect(drawX + 6, drawY + 26, 7, 6);
+        ctx.fillRect(drawX + 19, drawY + 26, 7, 6);
+      }
+
+      // --- SHOES (red) ---
+      ctx.fillStyle = R;
+      if (isJumping) {
+        ctx.fillRect(drawX + 4, drawY + 28, 9, 2);
+        ctx.fillRect(drawX + 19, drawY + 28, 9, 2);
+      } else if (isWalking) {
+        if (walkCycle === 0) {
+          ctx.fillRect(drawX + 4, drawY + 30, 9, 2);
+          ctx.fillRect(drawX + 19, drawY + 28, 9, 2);
+        } else if (walkCycle === 1) {
+          ctx.fillRect(drawX + 4, drawY + 28, 9, 2);
+          ctx.fillRect(drawX + 19, drawY + 30, 9, 2);
+        } else if (walkCycle === 2) {
+          ctx.fillRect(drawX + 4, drawY + 30, 9, 2);
+          ctx.fillRect(drawX + 19, drawY + 28, 9, 2);
+        } else {
+          ctx.fillRect(drawX + 4, drawY + 28, 9, 2);
+          ctx.fillRect(drawX + 19, drawY + 30, 9, 2);
+        }
+      } else {
+        ctx.fillRect(drawX + 4, drawY + 30, 9, 2);
+        ctx.fillRect(drawX + 19, drawY + 30, 9, 2);
+      }
     }
 
-    function drawPlatform(ctx, p, camX) {
+    // =====================================================
+    // 4.1 THEMATIC PLATFORMS (NEU — Phase 4: Thematic Platforms)
+    // =====================================================
+
+    /**
+     * Draws a platform with world-specific theme (wood, ice, stone)
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Object} p - Platform entity
+     * @param {number} camX - Camera X offset
+     * @param {string} theme - Platform theme from WorldConfig
+     */
+    function drawPlatform(ctx, p, camX, theme) {
       const drawX = p.x - camX;
 
-      // Main platform body (wooden beam style)
+      switch (theme) {
+        case 'ice':
+          drawIcePlatform(ctx, drawX, p);
+          break;
+        case 'stone':
+          drawStonePlatform(ctx, drawX, p);
+          break;
+        case 'wood':
+        default:
+          drawWoodPlatform(ctx, drawX, p);
+          break;
+      }
+    }
+
+    /**
+     * Wood platform (jungle theme) — wooden beam with rivets
+     */
+    function drawWoodPlatform(ctx, x, p) {
       ctx.fillStyle = '#8B6914';
-      ctx.fillRect(drawX, p.y, p.width, p.height);
+      ctx.fillRect(x, p.y, p.width, p.height);
 
-      // Top highlight
       ctx.fillStyle = '#A0822A';
-      ctx.fillRect(drawX, p.y, p.width, 4);
+      ctx.fillRect(x, p.y, p.width, 4);
 
-      // Bottom shadow
       ctx.fillStyle = '#6B5310';
-      ctx.fillRect(drawX, p.y + p.height - 3, p.width, 3);
+      ctx.fillRect(x, p.y + p.height - 3, p.width, 3);
 
-      // Rivet details
       ctx.fillStyle = '#5C4410';
-      for (let rx = drawX + 10; rx < drawX + p.width - 5; rx += 30) {
+      for (let rx = x + 10; rx < x + p.width - 5; rx += 30) {
         ctx.fillRect(rx, p.y + 6, 4, 4);
+      }
+    }
+
+    /**
+     * Ice platform (snow theme) — translucent ice with cracks
+     */
+    function drawIcePlatform(ctx, x, p) {
+      // Ice base (light blue)
+      ctx.fillStyle = '#a4d8f0';
+      ctx.fillRect(x, p.y, p.width, p.height);
+
+      // Ice highlight (white)
+      ctx.fillStyle = '#d4eff8';
+      ctx.fillRect(x, p.y, p.width, 4);
+
+      // Ice shadow (darker blue)
+      ctx.fillStyle = '#7bb8d0';
+      ctx.fillRect(x, p.y + p.height - 3, p.width, 3);
+
+      // Ice cracks
+      ctx.fillStyle = '#8ac4e0';
+      for (let cx = x + 15; cx < x + p.width - 10; cx += 40) {
+        ctx.fillRect(cx, p.y + 5, 1, p.height - 8);
+        ctx.fillRect(cx + 8, p.y + 3, 1, p.height - 6);
+      }
+
+      // Frost sparkle
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x + 5, p.y + 2, 3, 2);
+      ctx.fillRect(x + 25, p.y + 8, 2, 2);
+    }
+
+    /**
+     * Stone platform (desert theme) — rough stone with cracks
+     */
+    function drawStonePlatform(ctx, x, p) {
+      // Stone base
+      ctx.fillStyle = '#b8860b';
+      ctx.fillRect(x, p.y, p.width, p.height);
+
+      // Stone highlight
+      ctx.fillStyle = '#daa520';
+      ctx.fillRect(x, p.y, p.width, 4);
+
+      // Stone shadow
+      ctx.fillStyle = '#8b6914';
+      ctx.fillRect(x, p.y + p.height - 3, p.width, 3);
+
+      // Stone texture (rough blocks)
+      ctx.fillStyle = '#a0780a';
+      for (let bx = x + 8; bx < x + p.width - 15; bx += 25) {
+        ctx.fillRect(bx, p.y + 5, 12, 3);
+        ctx.fillRect(bx + 5, p.y + 10, 8, 2);
+      }
+
+      // Stone cracks
+      ctx.fillStyle = '#6b5310';
+      for (let cx = x + 20; cx < x + p.width - 10; cx += 50) {
+        ctx.fillRect(cx, p.y + 4, 1, p.height - 6);
       }
     }
 
@@ -466,52 +949,370 @@
       ctx.fillRect(drawX + 5, drawY + 3, 4, 6);
     }
 
-    function drawGoomba(ctx, g, camX) {
+    // =====================================================
+    // 3.1 THEMATIC ENEMIES (NEU — Phase 3: Thematic Enemies)
+    // =====================================================
+
+    /**
+     * Draws an enemy based on the current world's enemyTheme.
+     * Supports: barrel, penguin, scorpion
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Object} g - Goomba/enemy entity
+     * @param {number} camX - Camera X offset
+     * @param {string} theme - Enemy theme from WorldConfig
+     */
+    function drawEnemy(ctx, g, camX, theme) {
       const drawX = g.x - camX;
       const drawY = g.y;
+      const walkCycle = Math.floor(g.animFrame) % 2;
 
-      // Body (brown mushroom)
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(drawX + 2, drawY + 6, 20, 12);
+      switch (theme) {
+        case 'barrel':
+          drawBarrel(ctx, drawX, drawY, g, walkCycle);
+          break;
+        case 'penguin':
+          drawPenguin(ctx, drawX, drawY, g, walkCycle);
+          break;
+        case 'scorpion':
+          drawScorpion(ctx, drawX, drawY, g, walkCycle);
+          break;
+        default:
+          drawBarrel(ctx, drawX, drawY, g, walkCycle);
+      }
+    }
 
-      // Head (darker brown cap)
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(drawX, drawY, 24, 10);
-
-      // Cap highlight
+    /**
+     * Barrel enemy (jungle theme) — rolling wooden barrel with metal bands
+     */
+    function drawBarrel(ctx, x, y, g, cycle) {
+      // Barrel body (brown wood)
       ctx.fillStyle = '#8B6914';
-      ctx.fillRect(drawX + 4, drawY + 2, 16, 4);
+      ctx.fillRect(x + 2, y + 2, 20, 20);
 
-      // Eyes (white with black pupils)
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(drawX + 5, drawY + 8, 5, 5);
-      ctx.fillRect(drawX + 14, drawY + 8, 5, 5);
+      // Barrel top curve
+      ctx.fillStyle = '#A0822A';
+      ctx.fillRect(x + 4, y, 16, 4);
 
-      ctx.fillStyle = '#000';
-      // Eyes look in movement direction
-      const eyeOffset = g.vx > 0 ? 2 : 0;
-      ctx.fillRect(drawX + 5 + eyeOffset, drawY + 9, 3, 3);
-      ctx.fillRect(drawX + 14 + eyeOffset, drawY + 9, 3, 3);
+      // Barrel bottom curve
+      ctx.fillStyle = '#6B5310';
+      ctx.fillRect(x + 4, y + 22, 16, 2);
 
-      // Angry eyebrows
-      ctx.fillStyle = '#000';
-      ctx.fillRect(drawX + 4, drawY + 6, 6, 2);
-      ctx.fillRect(drawX + 14, drawY + 6, 6, 2);
+      // Metal bands (silver)
+      ctx.fillStyle = '#888';
+      ctx.fillRect(x + 2, y + 6, 20, 2);
+      ctx.fillRect(x + 2, y + 16, 20, 2);
 
-      // Legs with walk animation
-      ctx.fillStyle = '#000';
-      if (Math.floor(g.animFrame) % 2 === 0) {
-        ctx.fillRect(drawX + 4, drawY + 18, 5, 6);
-        ctx.fillRect(drawX + 15, drawY + 18, 5, 6);
+      // Wood grain lines
+      ctx.fillStyle = '#6B5310';
+      ctx.fillRect(x + 6, y + 9, 4, 1);
+      ctx.fillRect(x + 14, y + 9, 4, 1);
+      ctx.fillRect(x + 8, y + 19, 6, 1);
+
+      // Rolling animation: rotation indicator
+      if (cycle === 0) {
+        ctx.fillStyle = '#A0822A';
+        ctx.fillRect(x + 4, y + 10, 3, 3);
       } else {
-        ctx.fillRect(drawX + 2, drawY + 18, 5, 6);
-        ctx.fillRect(drawX + 17, drawY + 18, 5, 6);
+        ctx.fillStyle = '#A0822A';
+        ctx.fillRect(x + 17, y + 10, 3, 3);
       }
 
-      // Feet
+      // Eyes on barrel
       ctx.fillStyle = '#000';
-      ctx.fillRect(drawX + 2, drawY + 22, 7, 2);
-      ctx.fillRect(drawX + 15, drawY + 22, 7, 2);
+      const eyeOff = g.vx > 0 ? 2 : 0;
+      ctx.fillRect(x + 8 + eyeOff, y + 10, 3, 3);
+      ctx.fillRect(x + 15 + eyeOff, y + 10, 3, 3);
+    }
+
+    /**
+     * Penguin enemy (snow theme) — waddling penguin with flippers
+     */
+    function drawPenguin(ctx, x, y, g, cycle) {
+      // Body (black)
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(x + 4, y + 6, 16, 14);
+
+      // Belly (white)
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x + 8, y + 10, 8, 8);
+
+      // Head (black)
+      ctx.fillRect(x + 6, y, 12, 10);
+
+      // Eyes (white)
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x + 8, y + 3, 3, 3);
+      ctx.fillRect(x + 14, y + 3, 3, 3);
+
+      // Pupils
+      ctx.fillStyle = '#000';
+      const eyeOff = g.vx > 0 ? 1 : 0;
+      ctx.fillRect(x + 9 + eyeOff, y + 4, 2, 2);
+      ctx.fillRect(x + 15 + eyeOff, y + 4, 2, 2);
+
+      // Beak (orange)
+      ctx.fillStyle = '#FF8C00';
+      ctx.fillRect(x + 10, y + 7, 4, 2);
+
+      // Flippers (black) — waddle animation
+      ctx.fillStyle = '#1a1a2e';
+      if (cycle === 0) {
+        ctx.fillRect(x, y + 10, 5, 8);   // Left flipper out
+        ctx.fillRect(x + 19, y + 10, 5, 8); // Right flipper out
+      } else {
+        ctx.fillRect(x + 2, y + 8, 4, 6);  // Left flipper in
+        ctx.fillRect(x + 18, y + 8, 4, 6); // Right flipper in
+      }
+
+      // Feet (orange)
+      ctx.fillStyle = '#FF8C00';
+      ctx.fillRect(x + 6, y + 20, 5, 2);
+      ctx.fillRect(x + 14, y + 20, 5, 2);
+    }
+
+    /**
+     * Scorpion enemy (desert theme) — crawling scorpion with tail
+     */
+    function drawScorpion(ctx, x, y, g, cycle) {
+      // Body (dark orange/brown)
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(x + 4, y + 10, 16, 8);
+
+      // Head
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(x + 16, y + 8, 8, 8);
+
+      // Eyes (red)
+      ctx.fillStyle = '#cc0000';
+      const eyeOff = g.vx > 0 ? 2 : 0;
+      ctx.fillRect(x + 18 + eyeOff, y + 10, 2, 2);
+      ctx.fillRect(x + 22 + eyeOff, y + 10, 2, 2);
+
+      // Pincers
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(x + 24, y + 8, 2, 4);
+      ctx.fillRect(x + 24, y + 12, 2, 4);
+
+      // Tail (curved up) — animated
+      ctx.fillStyle = '#654321';
+      if (cycle === 0) {
+        ctx.fillRect(x, y + 8, 6, 4);
+        ctx.fillRect(x, y + 4, 4, 4);
+        // Stinger
+        ctx.fillStyle = '#cc0000';
+        ctx.fillRect(x, y + 2, 2, 2);
+      } else {
+        ctx.fillRect(x, y + 6, 6, 4);
+        ctx.fillRect(x, y + 2, 4, 4);
+        // Stinger
+        ctx.fillStyle = '#cc0000';
+        ctx.fillRect(x, y, 2, 2);
+      }
+
+      // Legs (6 legs) — crawl animation
+      ctx.fillStyle = '#8B4513';
+      if (cycle === 0) {
+        ctx.fillRect(x + 6, y + 18, 2, 4);
+        ctx.fillRect(x + 10, y + 18, 2, 4);
+        ctx.fillRect(x + 14, y + 18, 2, 4);
+        ctx.fillRect(x + 8, y + 18, 2, 4);
+        ctx.fillRect(x + 12, y + 18, 2, 4);
+        ctx.fillRect(x + 16, y + 18, 2, 4);
+      } else {
+        ctx.fillRect(x + 7, y + 18, 2, 4);
+        ctx.fillRect(x + 11, y + 18, 2, 4);
+        ctx.fillRect(x + 15, y + 18, 2, 4);
+        ctx.fillRect(x + 9, y + 18, 2, 4);
+        ctx.fillRect(x + 13, y + 18, 2, 4);
+        ctx.fillRect(x + 17, y + 18, 2, 4);
+      }
+    }
+
+    // =====================================================
+    // 4.2 BACKGROUND RENDERER & PARTICLES (NEU — Phase 4: Parallax + Partikel)
+    // =====================================================
+
+    /**
+     * Thematic background with parallax layers and particles.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} camX - Camera X offset
+     */
+    function drawBackground(ctx, camX) {
+      const wc = getWorldConfig(GameState.currentWorld).colors;
+      const bg = getWorldConfig(GameState.currentWorld).background;
+
+      // Parallax layer 1 (far — slow)
+      const off1 = camX * 0.2;
+      if (bg.clouds) drawClouds(ctx, off1, wc);
+      if (bg.mountains) drawMountains(ctx, off1, wc);
+      if (bg.dunes) drawDunes(ctx, off1, wc);
+      if (bg.pyramids) drawPyramids(ctx, off1, wc);
+
+      // Parallax layer 2 (mid — medium)
+      const off2 = camX * 0.5;
+      if (bg.trees) drawTrees(ctx, off2, wc);
+      if (bg.vines) drawVines(ctx, off2, wc);
+
+      // Particles
+      drawParticles(ctx, camX, wc, bg.particles);
+    }
+
+    /**
+     * Draw clouds (parallax far layer)
+     */
+    function drawClouds(ctx, off1, wc) {
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      for (let i = 0; i < 5; i++) {
+        const cx = ((i * 350 + 100) - off1) % (CANVAS_WIDTH + 200) - 100;
+        const cy = 30 + i * 25;
+        ctx.fillRect(cx, cy, 80, 16);
+        ctx.fillRect(cx + 15, cy - 8, 50, 12);
+      }
+    }
+
+    /**
+     * Draw jungle trees (parallax mid layer)
+     */
+    function drawTrees(ctx, off2, wc) {
+      for (let i = 0; i < 6; i++) {
+        const tx = ((i * 280 + 50) - off2) % (CANVAS_WIDTH + 200) - 100;
+        // Trunk
+        ctx.fillStyle = '#3d2b1f';
+        ctx.fillRect(tx + 10, 150, 8, 250);
+        // Canopy
+        ctx.fillStyle = '#2d5a3f';
+        ctx.fillRect(tx - 10, 100, 48, 60);
+        ctx.fillRect(tx, 80, 28, 30);
+      }
+    }
+
+    /**
+     * Draw hanging vines (parallax mid layer)
+     */
+    function drawVines(ctx, off2, wc) {
+      ctx.fillStyle = '#1a472a';
+      for (let i = 0; i < 4; i++) {
+        const vx = ((i * 400 + 200) - off2 * 0.8) % (CANVAS_WIDTH + 200) - 100;
+        const vineLen = 40 + (i % 3) * 20;
+        ctx.fillRect(vx, 0, 3, vineLen);
+        // Leaf at bottom
+        ctx.fillRect(vx - 3, vineLen - 6, 9, 6);
+      }
+    }
+
+    /**
+     * Draw snow mountains (parallax far layer)
+     */
+    function drawMountains(ctx, off1, wc) {
+      ctx.fillStyle = '#5a7a9a';
+      for (let i = 0; i < 4; i++) {
+        const mx = ((i * 400 + 150) - off1) % (CANVAS_WIDTH + 300) - 150;
+        // Mountain triangle
+        ctx.fillRect(mx, 180, 120, 220);
+        ctx.fillRect(mx + 20, 140, 80, 60);
+        ctx.fillRect(mx + 40, 110, 40, 40);
+        // Snow cap
+        ctx.fillStyle = '#d4eff8';
+        ctx.fillRect(mx + 45, 100, 30, 16);
+        ctx.fillStyle = '#5a7a9a';
+      }
+    }
+
+    /**
+     * Draw desert dunes (parallax far layer)
+     */
+    function drawDunes(ctx, off1, wc) {
+      ctx.fillStyle = '#c4944a';
+      for (let i = 0; i < 5; i++) {
+        const dx = ((i * 300 + 80) - off1) % (CANVAS_WIDTH + 200) - 100;
+        ctx.fillRect(dx, 250, 160, 150);
+        ctx.fillRect(dx + 20, 220, 120, 40);
+        ctx.fillRect(dx + 50, 200, 60, 30);
+      }
+    }
+
+    /**
+     * Draw pyramid silhouettes (parallax far layer)
+     */
+    function drawPyramids(ctx, off1, wc) {
+      ctx.fillStyle = '#8b6914';
+      for (let i = 0; i < 2; i++) {
+        const px = ((i * 500 + 300) - off1 * 0.8) % (CANVAS_WIDTH + 300) - 150;
+        // Pyramid
+        ctx.fillRect(px, 200, 100, 200);
+        ctx.fillRect(px + 15, 170, 70, 50);
+        ctx.fillRect(px + 35, 150, 30, 30);
+      }
+    }
+
+    /**
+     * Particle system for atmospheric effects
+     * Particles: leaves, snow, sand
+     */
+    const Particles = {
+      list: [],
+      MAX: 30,
+
+      init(type) {
+        this.list = [];
+        for (let i = 0; i < this.MAX; i++) {
+          this.list.push(this.create(type, i));
+        }
+      },
+
+      create(type, i) {
+        return {
+          x: Math.random() * CANVAS_WIDTH,
+          y: Math.random() * CANVAS_HEIGHT,
+          speed: 0.3 + Math.random() * 0.8,
+          size: 2 + Math.floor(Math.random() * 3),
+          drift: (Math.random() - 0.5) * 0.5,
+          type: type
+        };
+      },
+
+      update() {
+        for (const p of this.list) {
+          p.y += p.speed;
+          p.x += p.drift;
+          if (p.y > CANVAS_HEIGHT + 10) {
+            p.y = -10;
+            p.x = Math.random() * CANVAS_WIDTH;
+          }
+          if (p.x > CANVAS_WIDTH + 10) p.x = -10;
+          if (p.x < -10) p.x = CANVAS_WIDTH + 10;
+        }
+      },
+
+      draw(ctx, wc) {
+        for (const p of this.list) {
+          switch (p.type) {
+            case 'leaves':
+              ctx.fillStyle = '#4CAF50';
+              ctx.fillRect(p.x, p.y, p.size, p.size);
+              break;
+            case 'snow':
+              ctx.fillStyle = 'rgba(255,255,255,0.8)';
+              ctx.fillRect(p.x, p.y, p.size, p.size);
+              break;
+            case 'sand':
+              ctx.fillStyle = '#fdcb6e';
+              ctx.fillRect(p.x, p.y, p.size, 1);
+              break;
+          }
+        }
+      }
+    };
+
+    /**
+     * Draw particles based on world type
+     */
+    function drawParticles(ctx, camX, wc, type) {
+      if (Particles.list.length === 0 || Particles.list[0].type !== type) {
+        Particles.init(type);
+      }
+      Particles.update();
+      Particles.draw(ctx, wc);
     }
 
     // =====================================================
@@ -629,7 +1430,19 @@
 
     function showGameOver() {
       GameState.state = 'gameover';
-      document.getElementById('final-score').textContent = `Score: ${GameState.score}`;
+      const worldName = getWorldConfig(GameState.currentWorld).name;
+      document.getElementById('final-score').textContent = `Score: ${GameState.score} | Welt: ${worldName}`;
+      document.getElementById('game-over').classList.add('active');
+    }
+
+    /**
+     * Show victory screen when all bananas are collected
+     */
+    function showVictory() {
+      GameState.state = 'victory';
+      const worldName = getWorldConfig(GameState.currentWorld).name;
+      document.getElementById('final-score').textContent = `ALLE BANANEN! | Score: ${GameState.score} | Welt: ${worldName}`;
+      document.getElementById('game-over').querySelector('h1').textContent = 'SIEG!';
       document.getElementById('game-over').classList.add('active');
     }
 
@@ -641,10 +1454,45 @@
     // 9. GAME (MAIN)
     // =====================================================
 
+    // =====================================================
+    // 9.1 WORLD-SPECIFIC ENTITY INIT (NEU — Phase 6: World Layout)
+    // =====================================================
+
+    /**
+     * Initialize entities from WorldConfig.layout for the current world.
+     * Replaces hardcoded PLATFORMS, BANANA_POSITIONS, GOOMBA_CONFIGS.
+     */
     function initEntities() {
-      platforms = createPlatforms();
-      bananas = createBananas();
-      goombas = createGoombas();
+      const layout = getWorldConfig(GameState.currentWorld).layout;
+
+      platforms = layout.platforms.map(p => ({
+        x: p.x,
+        y: p.y,
+        width: p.width,
+        height: PLATFORM_HEIGHT
+      }));
+
+      bananas = layout.bananas.map(b => ({
+        x: b.x,
+        y: b.y,
+        width: BANANA_WIDTH,
+        height: BANANA_HEIGHT,
+        collected: false
+      }));
+
+      goombas = layout.goombas.map(g => ({
+        x: g.x,
+        y: g.y,
+        vx: g.speed,
+        width: GOOMBA_WIDTH,
+        height: GOOMBA_HEIGHT,
+        patrolLeft: g.patrolLeft,
+        patrolRight: g.patrolRight,
+        animFrame: 0,
+        platformIndex: g.platformIndex
+      }));
+
+      GameState.bananasTotal = layout.bananas.length;
     }
 
     function resetPlayer() {
@@ -653,7 +1501,7 @@
       Player.vx = 0;
       Player.vy = 0;
       Player.onGround = false;
-      Player.invulnerable = INVULNERABILITY_FRAMES;
+      Player.invulnerable = 0;
       Player.visible = true;
       Player.animTimer = 0;
       Camera.x = 0;
@@ -668,10 +1516,16 @@
       resetPlayer();
       initEntities();
       hideGameOver();
+      // Reset game over title
+      document.getElementById('game-over').querySelector('h1').textContent = 'GAME OVER';
       updateHUD();
     }
 
     function update() {
+      if (GameState.state === 'menu') {
+        MenuManager.handleInput();
+        return;
+      }
       if (GameState.state !== 'play') return;
 
       // --- Player Input ---
@@ -707,7 +1561,7 @@
 
       // Fall off the world
       if (Player.y > WORLD_HEIGHT) {
-        Player.lives--;
+        GameState.lives--;
         updateHUD();
         if (Player.lives <= 0) {
           showGameOver();
@@ -735,6 +1589,11 @@
           GameState.bananasCollected++;
           updateHUD();
         }
+      }
+
+      // --- Victory Check (all bananas collected) ---
+      if (GameState.bananasCollected >= GameState.bananasTotal) {
+        showVictory();
       }
 
       // --- Goomba Update ---
@@ -765,17 +1624,27 @@
     }
 
     function render(ctx) {
-      // Clear canvas
+      // Clear canvas with dark background (always visible at edges)
       ctx.fillStyle = '#0f0f23';
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      if (GameState.state === 'menu') {
+        // Draw the menu
+        MenuManager.draw(ctx);
+        return;
+      }
+
+      // Draw thematic background (sky gradient fills entire canvas)
+      drawBackground(ctx, Camera.x);
 
       // Apply camera
       ctx.save();
       applyCamera(ctx);
 
-      // Draw platforms
+      // Draw platforms (thematic)
+      const platformTheme = getWorldConfig(GameState.currentWorld).platformTheme;
       for (const p of platforms) {
-        drawPlatform(ctx, p, Camera.x);
+        drawPlatform(ctx, p, Camera.x, platformTheme);
       }
 
       // Draw bananas
@@ -783,9 +1652,10 @@
         drawBanana(ctx, b, Camera.x);
       }
 
-      // Draw goombas
+      // Draw enemies (thematic)
+      const enemyTheme = getWorldConfig(GameState.currentWorld).enemyTheme;
       for (const g of goombas) {
-        drawGoomba(ctx, g, Camera.x);
+        drawEnemy(ctx, g, Camera.x, enemyTheme);
       }
 
       // Draw player
@@ -806,7 +1676,10 @@
     function init() {
       canvas = document.getElementById('game');
       Input.init();
+      GameState.state = 'menu';
+      GameState.currentWorld = 0;
       initEntities();
+      resetPlayer();
       updateHUD();
 
       // Restart handlers

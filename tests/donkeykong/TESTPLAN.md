@@ -152,9 +152,62 @@ Donkey Kong ist ein klassisches Arcade-Plattformspiel mit HTML5 Canvas, bei dem 
 
 ---
 
+## 4.1 Sprint 2: Charaktere & 3 Welten
+
+### Suite 13: World Selection Menu (TC-39 bis TC-43)
+| ID | Beschreibung | Erwartetes Ergebnis | Jira |
+|----|-------------|-------------------|------|
+| TC-39 | Menu wird bei Spielstart angezeigt | Menu-Overlay sichtbar, 3 Welt-Karten | SCRUM-139 |
+| TC-40 | Pfeiltasten navigieren zwischen Welten | Highlight wechselt links/rechts | SCRUM-140 |
+| TC-41 | Enter startet ausgewählte Welt | Spiel startet mit gewählter Welt | SCRUM-141 |
+| TC-42 | 3 Welt-Karten mit korrekten Labels | "Dschungel", "Schnee", "Wüste" | SCRUM-142 |
+| TC-43 | Default-Auswahl ist Dschungel (Welt 1) | selectedWorld === 0 | SCRUM-143 |
+
+### Suite 14: 3 Welten (TC-44 bis TC-52)
+| ID | Beschreibung | Erwartetes Ergebnis | Jira |
+|----|-------------|-------------------|------|
+| TC-44 | Dschungel-Welt mit grüner Farbpalette | sky: #1a472a, ground: #3d2b1f | SCRUM-144 |
+| TC-45 | Schnee-Welt mit blauer Farbpalette | sky: #4a6fa5, ground: #c8d6e5 | SCRUM-145 |
+| TC-46 | Wüste-Welt mit goldener Farbpalette | sky: #e17055, ground: #d4a574 | SCRUM-146 |
+| TC-47 | Dschungel-Hintergrund (Bäume, Lianen) | trees: true, vines: true | SCRUM-147 |
+| TC-48 | Schnee-Hintergrund (Berge, Schneeflocken) | mountains: true, particles: "snow" | SCRUM-148 |
+| TC-49 | Wüste-Hintergrund (Dünen, Pyramiden) | dunes: true, pyramids: true | SCRUM-149 |
+| TC-50 | Partikel-System pro Welt aktiv | Partikel werden gerendert | SCRUM-150 |
+| TC-51 | Welt-Layout korrekt (Plattformen, Bananen, Gegner) | Plattformen nach WorldConfig | SCRUM-151 |
+| TC-52 | Parallax-Hintergrund (mehrere Schichten) | 2-3 Parallax-Layers | SCRUM-152 |
+
+### Suite 15: Thematic Enemies (TC-53 bis TC-55)
+| ID | Beschreibung | Erwartetes Ergebnis | Jira |
+|----|-------------|-------------------|------|
+| TC-53 | Barrel-Gegner in Dschungel-Welt | enemyTheme: "barrel" | SCRUM-153 |
+| TC-54 | Penguin-Gegner in Schnee-Welt | enemyTheme: "penguin" | SCRUM-154 |
+| TC-55 | Scorpion-Gegner in Wüste-Welt | enemyTheme: "scorpion" | SCRUM-155 |
+
+### Suite 16: Thematic Platforms (TC-56 bis TC-58)
+| ID | Beschreibung | Erwartetes Ergebnis | Jira |
+|----|-------------|-------------------|------|
+| TC-56 | Holz-Plattformen in Dschungel | platformTheme: "wood" | SCRUM-156 |
+| TC-57 | Eis-Plattformen in Schnee | platformTheme: "ice" | SCRUM-157 |
+| TC-58 | Stein-Plattformen in Wüste | platformTheme: "stone" | SCRUM-158 |
+
+### Suite 17: Enhanced DK Character (TC-59 bis TC-61)
+| ID | Beschreibung | Erwartetes Ergebnis | Jira |
+|----|-------------|-------------------|------|
+| TC-59 | DK mit Halsband und "DK" gerendert | Halsband sichtbar, "DK" Text | SCRUM-159 |
+| TC-60 | DK Walk-Animation (4-Frame) | animFrame ändert sich bei Bewegung | SCRUM-160 |
+| TC-61 | DK Jump-Animation (Arme hoch) | Jump-Frame bei vy < 0 | SCRUM-161 |
+
+### Suite 18: HUD Welt-Anzeige (TC-62 bis TC-63)
+| ID | Beschreibung | Erwartetes Ergebnis | Jira |
+|----|-------------|-------------------|------|
+| TC-62 | Welt-Name im HUD angezeigt | Text enthält Welt-Name | SCRUM-162 |
+| TC-63 | Game Over zeigt Welt-Name im Score | Score-Text enthält Welt | SCRUM-163 |
+
+---
+
 ## 5. Testergebnis
 
-### 5.1 Zusammenfassung
+### 5.1 Zusammenfassung (Sprint 1)
 | Metrik | Wert |
 |--------|------|
 | Gesamtzahl Testfälle | 38 |
@@ -163,14 +216,24 @@ Donkey Kong ist ein klassisches Arcade-Plattformspiel mit HTML5 Canvas, bei dem 
 | Übersprungen | 0 ⏭️ |
 | Erfolgsrate | 100% |
 
-### 5.2 Testlauf-Details
+### 5.2 Zusammenfassung (Sprint 2)
+| Metrik | Wert |
+|--------|------|
+| Gesamtzahl Testfälle | 63 |
+| Bestanden | 32 ✅ |
+| Fehlgeschlagen | 31 ❌ |
+| Übersprungen | 0 ⏭️ |
+| Erfolgsrate | 50,8% |
+
+### 5.3 Testlauf-Details
 - **Datum:** 2026-06-13
 - **Browser:** Chromium (headless)
-- **Dauer:** ~15 Sekunden
+- **Dauer:** ~20 Sekunden
 - **Framework:** Playwright Test
 
-### 5.3 Jira-Issues
-Alle 38 Testfälle wurden als Jira-Issues erstellt (SCRUM-101 bis SCRUM-138) und mit Test-Ergebnissen kommentiert.
+### 5.4 Jira-Issues
+- **Sprint 1:** 38 Testfälle als Jira-Issues erstellt (SCRUM-101 bis SCRUM-138) und mit Test-Ergebnissen kommentiert
+- **Sprint 2:** 25 Testfälle als Jira-Issues erstellt (SCRUM-147 bis SCRUM-171) und mit Test-Automatisierungskommentaren versehen
 
 ---
 
@@ -202,7 +265,8 @@ npx playwright test
 ```
 tests/donkeykong/
 ├── playwright.config.ts    # Playwright-Konfiguration
-├── dk-tests.spec.ts        # 38 Testfälle in 12 Suiten
+├── dk-tests.spec.ts        # 63 Testfälle in 20 Suiten
 ├── TESTPLAN.md             # Dieser Testplan
+├── TESTBERICHT.html        # Automatischer Testbericht
 ├── package.json            # npm-Konfiguration
 └── node_modules/           # Abhängigkeiten
