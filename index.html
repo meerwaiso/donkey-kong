@@ -395,7 +395,10 @@
       invulnerable: 0,
       visible: true,
       spawnX: 50,
-      spawnY: 328
+      spawnY: 328,
+      // Character stats (for character switching)
+      speed: MOVE_SPEED,
+      jumpForce: JUMP_FORCE
     };
 
     let platforms = [];
@@ -419,6 +422,7 @@
         pause: false,     // P key for pause
         escape: false     // ESC key for menu
       },
+      justPressed: {},     // Keys that were just pressed (keydown since last clear)
 
       init() {
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
@@ -426,61 +430,49 @@
       },
 
       onKeyDown(e) {
-        switch (e.code) {
-          case 'ArrowLeft':
-            this.keys.left = true;
-            e.preventDefault();
-            break;
-          case 'ArrowRight':
-            this.keys.right = true;
-            e.preventDefault();
-            break;
-          case 'Space':
-          case 'ArrowUp':
-            this.keys.jump = true;
-            e.preventDefault();
-            break;
-          case 'Enter':
-            this.keys.confirm = true;
-            e.preventDefault();
-            break;
-          case 'KeyP':
-            this.keys.pause = true;
-            e.preventDefault();
-            break;
-          case 'Escape':
-            this.keys.escape = true;
-            e.preventDefault();
-            break;
+        const keyMap = {
+          'ArrowLeft': 'left',
+          'ArrowRight': 'right',
+          'Space': 'jump',
+          'ArrowUp': 'jump',
+          'Enter': 'confirm',
+          'KeyP': 'pause',
+          'Escape': 'escape'
+        };
+        const key = keyMap[e.code];
+        if (key) {
+          this.keys[key] = true;
+          this.justPressed[key] = true;
+          e.preventDefault();
         }
       },
 
       onKeyUp(e) {
-        switch (e.code) {
-          case 'ArrowLeft':
-            this.keys.left = false;
-            break;
-          case 'ArrowRight':
-            this.keys.right = false;
-            break;
-          case 'Space':
-          case 'ArrowUp':
-            this.keys.jump = false;
-            break;
-          case 'Enter':
-            this.keys.confirm = false;
-            break;
-          case 'KeyP':
-            this.keys.pause = false;
-            break;
-          case 'Escape':
-            this.keys.escape = false;
-            break;
+        const keyMap = {
+          'ArrowLeft': 'left',
+          'ArrowRight': 'right',
+          'Space': 'jump',
+          'ArrowUp': 'jump',
+          'Enter': 'confirm',
+          'KeyP': 'pause',
+          'Escape': 'escape'
+        };
+        const key = keyMap[e.code];
+        if (key) {
+          this.keys[key] = false;
         }
       },
 
       isPressed(key) {
         return this.keys[key] === true;
+      },
+
+      wasJustPressed(key) {
+        return this.justPressed[key] === true;
+      },
+
+      clearJustPressed() {
+        this.justPressed = {};
       }
     };
 
@@ -578,18 +570,14 @@
        * Handle menu input (only active when GameState.state === 'menu')
        */
       handleInput() {
-        if (Input.isPressed('left')) {
+        if (Input.wasJustPressed('left')) {
           if (this.selectedIndex > 0) this.selectedIndex--;
         }
-        if (Input.isPressed('right')) {
+        if (Input.wasJustPressed('right')) {
           if (this.selectedIndex < 2) this.selectedIndex++;
         }
-        if (Input.isPressed('confirm') && !this.CONFIRM_DEBOUNCE) {
-          this.CONFIRM_DEBOUNCE = true;
+        if (Input.wasJustPressed('confirm')) {
           this.confirm();
-        }
-        if (!Input.isPressed('confirm')) {
-          this.CONFIRM_DEBOUNCE = false;
         }
       },
 
@@ -1577,17 +1565,17 @@
         return;
       }
 
-      // Game Over: handle R key for restart
+      // Game Over: handle Enter key for restart
       if (GameState.state === 'gameover') {
-        if (Input.isPressed('confirm')) {
+        if (Input.wasJustPressed('confirm')) {
           reset();
         }
         return;
       }
 
-      // Victory: handle R key for restart
+      // Victory: handle Enter key for restart
       if (GameState.state === 'victory') {
-        if (Input.isPressed('confirm')) {
+        if (Input.wasJustPressed('confirm')) {
           reset();
         }
         return;
@@ -1595,10 +1583,10 @@
 
       // Pause toggle
       if (GameState.state === 'paused') {
-        if (Input.isPressed('pause')) {
+        if (Input.wasJustPressed('pause')) {
           GameState.state = 'play';
         }
-        if (Input.isPressed('escape')) {
+        if (Input.wasJustPressed('escape')) {
           returnToMenu();
         }
         return;
@@ -1607,13 +1595,13 @@
       if (GameState.state !== 'play') return;
 
       // Pause toggle (P key)
-      if (Input.isPressed('pause')) {
+      if (Input.wasJustPressed('pause')) {
         GameState.state = 'paused';
         return;
       }
 
       // ESC to return to menu
-      if (Input.isPressed('escape')) {
+      if (Input.wasJustPressed('escape')) {
         returnToMenu();
         return;
       }
@@ -1763,6 +1751,7 @@
 
     function gameLoop(timestamp) {
       update();
+      Input.clearJustPressed();
       const ctx = canvas.getContext('2d');
       render(ctx);
       requestAnimationFrame(gameLoop);
