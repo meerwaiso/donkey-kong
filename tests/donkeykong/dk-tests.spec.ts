@@ -44,7 +44,7 @@ test.describe('Suite 1: Canvas & Game Loop (SCRUM-85)', () => {
 
   test('TC-03: Dunkler Hintergrund wird gerendert', async ({ page }) => {
     await page.goto(GAME_URL);
-    await page.waitForTimeout(200);
+    await startGame(page);
     const bgColor = await page.evaluate(() => {
       const ctx = (document.getElementById('game') as HTMLCanvasElement).getContext('2d')!;
       const pixel = ctx.getImageData(0, 0, 1, 1).data;
