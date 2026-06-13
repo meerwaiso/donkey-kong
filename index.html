@@ -415,7 +415,9 @@
         left: false,
         right: false,
         jump: false,
-        confirm: false   // Enter key for menu confirmation
+        confirm: false,   // Enter key for menu confirmation
+        pause: false,     // P key for pause
+        escape: false     // ESC key for menu
       },
 
       init() {
@@ -442,6 +444,14 @@
             this.keys.confirm = true;
             e.preventDefault();
             break;
+          case 'KeyP':
+            this.keys.pause = true;
+            e.preventDefault();
+            break;
+          case 'Escape':
+            this.keys.escape = true;
+            e.preventDefault();
+            break;
         }
       },
 
@@ -459,6 +469,12 @@
             break;
           case 'Enter':
             this.keys.confirm = false;
+            break;
+          case 'KeyP':
+            this.keys.pause = false;
+            break;
+          case 'Escape':
+            this.keys.escape = false;
             break;
         }
       },
@@ -1521,12 +1537,86 @@
       updateHUD();
     }
 
+    // =====================================================
+    // 9.5 PAUSE OVERLAY RENDERER
+    // =====================================================
+
+    function drawPauseOverlay(ctx) {
+      // Dim background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Pause text
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 48px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
+
+      // Instructions
+      ctx.font = '18px monospace';
+      ctx.fillText('P = Fortsetzen', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+      ctx.fillText('ESC = Hauptmenü', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 55);
+      ctx.textAlign = 'left';
+    }
+
+    // =====================================================
+    // 9.6 RETURN TO MENU
+    // =====================================================
+
+    function returnToMenu() {
+      GameState.state = 'menu';
+      GameState.currentWorld = 0;
+      MenuManager.selectedIndex = 0;
+      Camera.x = 0;
+      hideGameOver();
+    }
+
     function update() {
       if (GameState.state === 'menu') {
         MenuManager.handleInput();
         return;
       }
+
+      // Game Over: handle R key for restart
+      if (GameState.state === 'gameover') {
+        if (Input.isPressed('confirm')) {
+          reset();
+        }
+        return;
+      }
+
+      // Victory: handle R key for restart
+      if (GameState.state === 'victory') {
+        if (Input.isPressed('confirm')) {
+          reset();
+        }
+        return;
+      }
+
+      // Pause toggle
+      if (GameState.state === 'paused') {
+        if (Input.isPressed('pause')) {
+          GameState.state = 'play';
+        }
+        if (Input.isPressed('escape')) {
+          returnToMenu();
+        }
+        return;
+      }
+
       if (GameState.state !== 'play') return;
+
+      // Pause toggle (P key)
+      if (Input.isPressed('pause')) {
+        GameState.state = 'paused';
+        return;
+      }
+
+      // ESC to return to menu
+      if (Input.isPressed('escape')) {
+        returnToMenu();
+        return;
+      }
 
       // --- Player Input ---
       Player.vx = 0;
@@ -1563,7 +1653,7 @@
       if (Player.y > WORLD_HEIGHT) {
         GameState.lives--;
         updateHUD();
-        if (Player.lives <= 0) {
+        if (GameState.lives <= 0) {
           showGameOver();
         } else {
           resetPlayer();
@@ -1662,6 +1752,11 @@
       drawPlayer(ctx, Player, Camera.x);
 
       ctx.restore();
+
+      // Draw pause overlay on top
+      if (GameState.state === 'paused') {
+        drawPauseOverlay(ctx);
+      }
     }
 
     let canvas = null;
