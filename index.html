@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Donkey Kong Browser Game</title>
+  <style>
+    /* === CSS: Retro Pixel-Stil === */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #1a1a2e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+    }
+
+    #game-container {
+      position: relative;
+      border: 4px solid #e94560;
+      border-radius: 4px;
+      box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+    }
+
+    #game {
+      display: block;
+      background-color: #0f0f23;
+    }
+
+    /* HUD Overlay */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      pointer-events: none;
+      padding: 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #eee;
+      font-size: 16px;
+      font-weight: bold;
+      text-shadow: 2px 2px 0 #000;
+      z-index: 10;
+    }
+
+    #score {
+      color: #ffd700;
+    }
+
+    #lives {
+      color: #e94560;
+    }
+
+    /* Restart Button */
+    #restart-btn {
+      pointer-events: all;
+      background-color: #e94560;
+      color: #fff;
+      border: none;
+      padding: 4px 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 2px;
+      text-transform: uppercase;
+    }
+
+    #restart-btn:hover {
+      background-color: #c73652;
+    }
+
+    /* Game Over Overlay */
+    #game-over {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+
+    #game-over.active {
+      display: flex;
+    }
+
+    #game-over h1 {
+      color: #e94560;
+      font-size: 48px;
+      text-shadow: 4px 4px 0 #000;
+      margin-bottom: 16px;
+      letter-spacing: 8px;
+    }
+
+    #game-over p {
+      color: #ffd700;
+      font-size: 20px;
+      text-shadow: 2px 2px 0 #000;
+      margin-bottom: 24px;
+    }
+
+    #game-over button {
+      background-color: #e94560;
+      color: #fff;
+      border: none;
+      padding: 12px 32px;
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    #game-over button:hover {
+      background-color: #c73652;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game" width="800" height="400"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <span id="score">Score: 0</span>
+      <button id="restart-btn">Restart</button>
+      <span id="lives">❤❤❤</span>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over">
+      <h1>GAME OVER</h1>
+      <p id="final-score">Score: 0</p>
+      <button id="gameover-restart-btn">Restart</button>
+    </div>
+  </div>
+
+  <script>
+    // =====================================================
+    // 1. CONSTANTS & CONFIG
+    // =====================================================
+    const CANVAS_WIDTH = 800;
+    const CANVAS_HEIGHT = 400;
+    const WORLD_WIDTH = 1600;
+    const WORLD_HEIGHT = 400;
+
+    // Physics
+    const GRAVITY = 0.6;
+    const JUMP_FORCE = -12;
+    const MAX_FALL = 15;
+    const MOVE_SPEED = 4;
+
+    // Entity sizes
+    const PLAYER_WIDTH = 32;
+    const PLAYER_HEIGHT = 32;
+    const PLATFORM_HEIGHT = 16;
+    const BANANA_WIDTH = 16;
+    const BANANA_HEIGHT = 16;
+    const GOOMBA_WIDTH = 24;
+    const GOOMBA_HEIGHT = 24;
+
+    // Camera smoothing
+    const CAMERA_LERP = 0.1;
+
+    // Invulnerability frames after hit
+    const INVULNERABILITY_FRAMES = 120; // ~2 seconds at 60fps
+
+    // Level: Platforms
+    const PLATFORMS = [
+      { x: 0,     y: 360, width: 400 },   // Ground (left)
+      { x: 350,   y: 280, width: 200 },   // Middle-bottom
+      { x: 100,   y: 200, width: 250 },   // Left-top
+      { x: 450,   y: 160, width: 300 },   // Right-top
+      { x: 850,   y: 240, width: 350 },   // Right-bottom (further)
+    ];
+
+    // Level: Bananas
+    const BANANA_POSITIONS = [
+      { x: 50,  y: 340 }, { x: 150, y: 340 }, { x: 300, y: 340 },
+      { x: 400, y: 260 }, { x: 500, y: 260 },
+      { x: 150, y: 180 }, { x: 250, y: 180 },
+      { x: 500, y: 140 }, { x: 650, y: 140 },
+      { x: 950, y: 220 },
+    ];
+
+    // Level: Goombas
+    const GOOMBA_CONFIGS = [
+      {
+        platformIndex: 2,
+        x: 150, y: 176,
+        speed: 1.5,
+        patrolLeft: 100,
+        patrolRight: 330
+      },
+      {
+        platformIndex: 4,
+        x: 900, y: 216,
+        speed: 2.0,
+        patrolLeft: 850,
+        patrolRight: 1180
+      },
+    ];
+
+    // =====================================================
+    // 2. GAME STATE
+    // =====================================================
+    const GameState = {
+      state: 'play',       // 'play' | 'gameover'
+      score: 0,
+      lives: 3,
+      bananasTotal: 10,
+      bananasCollected: 0
+    };
+
+    const Player = {
+      x: 50,
+      y: 300,
+      vx: 0,
+      vy: 0,
+      width: PLAYER_WIDTH,
+      height: PLAYER_HEIGHT,
+      onGround: false,
+      facing: 'right',
+      animFrame: 0,
+      animTimer: 0,
+      invulnerable: 0,
+      visible: true,
+      spawnX: 50,
+      spawnY: 300
+    };
+
+    let platforms = [];
+    let bananas = [];
+    let goombas = [];
+
+    const Camera = {
+      x: 0,
+      y: 0
+    };
+
+    // =====================================================
+    // 3. INPUT MANAGER
+    // =====================================================
+    const Input = {
+      keys: {
+        left: false,
+        right: false,
+        jump: false
+      },
+
+      init() {
+        window.addEventListener('keydown', (e) => this.onKeyDown(e));
+        window.addEventListener('keyup', (e) => this.onKeyUp(e));
+      },
+
+      onKeyDown(e) {
+        switch (e.code) {
+          case 'ArrowLeft':
+            this.keys.left = true;
+            e.preventDefault();
+            break;
+          case 'ArrowRight':
+            this.keys.right = true;
+            e.preventDefault();
+            break;
+          case 'Space':
+          case 'ArrowUp':
+            this.keys.jump = true;
+            e.preventDefault();
+            break;
+        }
+      },
+
+      onKeyUp(e) {
+        switch (e.code) {
+          case 'ArrowLeft':
+            this.keys.left = false;
+            break;
+          case 'ArrowRight':
+            this.keys.right = false;
+            break;
+          case 'Space':
+          case 'ArrowUp':
+            this.keys.jump = false;
+            break;
+        }
+      },
+
+      isPressed(key) {
+        return this.keys[key] === true;
+      }
+    };
+
+    // =====================================================
+    // 4. ENTITY FACTORY FUNCTIONS
+    // =====================================================
+
+    function createPlatforms() {
+      return PLATFORMS.map(p => ({
+        x: p.x,
+        y: p.y,
+        width: p.width,
+        height: PLATFORM_HEIGHT
+      }));
+    }
+
+    function createBananas() {
+      return BANANA_POSITIONS.map(b => ({
+        x: b.x,
+        y: b.y,
+        width: BANANA_WIDTH,
+        height: BANANA_HEIGHT,
+        collected: false
+      }));
+    }
+
+    function createGoombas() {
+      return GOOMBA_CONFIGS.map(g => ({
+        x: g.x,
+        y: g.y,
+        vx: g.speed,
+        width: GOOMBA_WIDTH,
+        height: GOOMBA_HEIGHT,
+        patrolLeft: g.patrolLeft,
+        patrolRight: g.patrolRight,
+        animFrame: 0,
+        platformIndex: g.platformIndex
+      }));
+    }
+
+    // =====================================================
+    // 4.1 DRAWING FUNCTIONS
+    // =====================================================
+
+    function drawPlayer(ctx, p, camX) {
+      // Invulnerability blink effect
+      if (p.invulnerable > 0) {
+        p.animTimer++;
+        if (p.animTimer % 8 < 4) {
+          p.visible = false;
+        } else {
+          p.visible = true;
+        }
+        if (p.animTimer >= INVULNERABILITY_FRAMES) {
+          p.invulnerable = 0;
+          p.visible = true;
+        }
+      }
+
+      if (!p.visible) return;
+
+      const drawX = p.x - camX;
+      const drawY = p.y;
+
+      // Pixel-Art DK (brown gorilla)
+      const brown = '#8B4513';
+      const darkBrown = '#5C3317';
+      const skin = '#DEB887';
+      const black = '#000';
+
+      // Body
+      ctx.fillStyle = brown;
+      ctx.fillRect(drawX + 6, drawY + 10, 20, 14);
+
+      // Head
+      ctx.fillStyle = brown;
+      ctx.fillRect(drawX + 8, drawY, 16, 14);
+
+      // Face (skin)
+      ctx.fillStyle = skin;
+      ctx.fillRect(drawX + 10, drawY + 4, 12, 8);
+
+      // Eyes
+      ctx.fillStyle = black;
+      if (p.facing === 'right') {
+        ctx.fillRect(drawX + 16, drawY + 5, 3, 3);
+        ctx.fillRect(drawX + 20, drawY + 5, 3, 3);
+      } else {
+        ctx.fillRect(drawX + 10, drawY + 5, 3, 3);
+        ctx.fillRect(drawX + 14, drawY + 5, 3, 3);
+      }
+
+      // Mouth
+      ctx.fillStyle = darkBrown;
+      ctx.fillRect(drawX + 14, drawY + 10, 4, 2);
+
+      // Arms
+      ctx.fillStyle = brown;
+      ctx.fillRect(drawX + 2, drawY + 12, 6, 8);
+      ctx.fillRect(drawX + 24, drawY + 12, 6, 8);
+
+      // Legs with walk animation
+      ctx.fillStyle = darkBrown;
+      if (p.vx !== 0 && Math.floor(p.animFrame) % 2 === 1) {
+        // Walking - alternate legs
+        ctx.fillRect(drawX + 8, drawY + 24, 6, 8);
+        ctx.fillRect(drawX + 18, drawY + 22, 6, 6);
+      } else {
+        // Standing / idle
+        ctx.fillRect(drawX + 8, drawY + 24, 6, 8);
+        ctx.fillRect(drawX + 18, drawY + 24, 6, 8);
+      }
+
+      // Shoes
+      ctx.fillStyle = '#cc0000';
+      ctx.fillRect(drawX + 6, drawY + 30, 8, 2);
+      ctx.fillRect(drawX + 18, drawY + 30, 8, 2);
+    }
+
+    function drawPlatform(ctx, p, camX) {
+      const drawX = p.x - camX;
+
+      // Main platform body (wooden beam style)
+      ctx.fillStyle = '#8B6914';
+      ctx.fillRect(drawX, p.y, p.width, p.height);
+
+      // Top highlight
+      ctx.fillStyle = '#A0822A';
+      ctx.fillRect(drawX, p.y, p.width, 4);
+
+      // Bottom shadow
+      ctx.fillStyle = '#6B5310';
+      ctx.fillRect(drawX, p.y + p.height - 3, p.width, 3);
+
+      // Rivet details
+      ctx.fillStyle = '#5C4410';
+      for (let rx = drawX + 10; rx < drawX + p.width - 5; rx += 30) {
+        ctx.fillRect(rx, p.y + 6, 4, 4);
+      }
+    }
+
+    function drawBanana(ctx, b, camX) {
+      if (b.collected) return;
+
+      const drawX = b.x - camX;
+      const drawY = b.y;
+
+      // Banana shape (yellow crescent)
+      ctx.fillStyle = '#FFD700';
+      ctx.fillRect(drawX + 3, drawY, 10, 14);
+      ctx.fillRect(drawX + 1, drawY + 2, 14, 10);
+      ctx.fillRect(drawX + 5, drawY + 12, 6, 4);
+
+      // Banana tip (brown)
+      ctx.fillStyle = '#8B6914';
+      ctx.fillRect(drawX + 6, drawY, 4, 3);
+
+      // Highlight
+      ctx.fillStyle = '#FFEC8B';
+      ctx.fillRect(drawX + 5, drawY + 3, 4, 6);
+    }
+
+    function drawGoomba(ctx, g, camX) {
+      const drawX = g.x - camX;
+      const drawY = g.y;
+
+      // Body (brown mushroom)
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(drawX + 2, drawY + 6, 20, 12);
+
+      // Head (darker brown cap)
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(drawX, drawY, 24, 10);
+
+      // Cap highlight
+      ctx.fillStyle = '#8B6914';
+      ctx.fillRect(drawX + 4, drawY + 2, 16, 4);
+
+      // Eyes (white with black pupils)
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(drawX + 5, drawY + 8, 5, 5);
+      ctx.fillRect(drawX + 14, drawY + 8, 5, 5);
+
+      ctx.fillStyle = '#000';
+      // Eyes look in movement direction
+      const eyeOffset = g.vx > 0 ? 2 : 0;
+      ctx.fillRect(drawX + 5 + eyeOffset, drawY + 9, 3, 3);
+      ctx.fillRect(drawX + 14 + eyeOffset, drawY + 9, 3, 3);
+
+      // Angry eyebrows
+      ctx.fillStyle = '#000';
+      ctx.fillRect(drawX + 4, drawY + 6, 6, 2);
+      ctx.fillRect(drawX + 14, drawY + 6, 6, 2);
+
+      // Legs with walk animation
+      ctx.fillStyle = '#000';
+      if (Math.floor(g.animFrame) % 2 === 0) {
+        ctx.fillRect(drawX + 4, drawY + 18, 5, 6);
+        ctx.fillRect(drawX + 15, drawY + 18, 5, 6);
+      } else {
+        ctx.fillRect(drawX + 2, drawY + 18, 5, 6);
+        ctx.fillRect(drawX + 17, drawY + 18, 5, 6);
+      }
+
+      // Feet
+      ctx.fillStyle = '#000';
+      ctx.fillRect(drawX + 2, drawY + 22, 7, 2);
+      ctx.fillRect(drawX + 15, drawY + 22, 7, 2);
+    }
+
+    // =====================================================
+    // 5. PHYSICS ENGINE
+    // =====================================================
+
+    function applyGravity(entity) {
+      entity.vy += GRAVITY;
+      if (entity.vy > MAX_FALL) {
+        entity.vy = MAX_FALL;
+      }
+    }
+
+    function applyJump(entity) {
+      if (entity.onGround) {
+        entity.vy = JUMP_FORCE;
+        entity.onGround = false;
+      }
+    }
+
+    function checkTopCollision(entity, plats) {
+      for (const p of plats) {
+        if (
+          entity.x + entity.width > p.x &&
+          entity.x < p.x + p.width &&
+          entity.y + entity.height >= p.y &&
+          entity.y + entity.height <= p.y + p.height + 8 &&
+          entity.vy >= 0
+        ) {
+          entity.y = p.y - entity.height;
+          entity.vy = 0;
+          entity.onGround = true;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function checkSideCollision(entity, plats) {
+      for (const p of plats) {
+        // Check if entity is within the vertical range of the platform
+        if (
+          entity.y + entity.height > p.y + 4 &&
+          entity.y < p.y + p.height
+        ) {
+          // Collision from the right side of the platform
+          if (
+            entity.x <= p.x + p.width &&
+            entity.x + entity.width > p.x + p.width &&
+            entity.vx > 0
+          ) {
+            entity.x = p.x + p.width;
+            entity.vx = 0;
+            return true;
+          }
+          // Collision from the left side of the platform
+          if (
+            entity.x + entity.width >= p.x &&
+            entity.x < p.x &&
+            entity.vx < 0
+          ) {
+            entity.x = p.x - entity.width;
+            entity.vx = 0;
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // AABB collision between two entities
+    function entitiesCollide(a, b) {
+      return (
+        a.x + a.width > b.x &&
+        a.x < b.x + b.width &&
+        a.y + a.height > b.y &&
+        a.y < b.y + b.height
+      );
+    }
+
+    // =====================================================
+    // 6. CAMERA MANAGER
+    // =====================================================
+
+    function cameraFollow(target) {
+      // Target: center the player on screen
+      const targetX = target.x - CANVAS_WIDTH / 2 + target.width / 2;
+
+      // Smooth lerp
+      Camera.x += (targetX - Camera.x) * CAMERA_LERP;
+
+      // Clamp to world bounds
+      Camera.x = Math.max(0, Math.min(Camera.x, WORLD_WIDTH - CANVAS_WIDTH));
+
+      // Y stays at 0 (no vertical scrolling needed for this game)
+      Camera.y = 0;
+    }
+
+    function applyCamera(ctx) {
+      ctx.translate(-Camera.x, -Camera.y);
+    }
+
+    // =====================================================
+    // 7. HUD MANAGER
+    // =====================================================
+
+    function updateHUD() {
+      document.getElementById('score').textContent = `Score: ${GameState.score}`;
+      document.getElementById('lives').textContent = '❤'.repeat(Math.max(0, GameState.lives));
+    }
+
+    // =====================================================
+    // 8. GAME OVER MANAGER
+    // =====================================================
+
+    function showGameOver() {
+      GameState.state = 'gameover';
+      document.getElementById('final-score').textContent = `Score: ${GameState.score}`;
+      document.getElementById('game-over').classList.add('active');
+    }
+
+    function hideGameOver() {
+      document.getElementById('game-over').classList.remove('active');
+    }
+
+    // =====================================================
+    // 9. GAME (MAIN)
+    // =====================================================
+
+    function initEntities() {
+      platforms = createPlatforms();
+      bananas = createBananas();
+      goombas = createGoombas();
+    }
+
+    function resetPlayer() {
+      Player.x = Player.spawnX;
+      Player.y = Player.spawnY;
+      Player.vx = 0;
+      Player.vy = 0;
+      Player.onGround = false;
+      Player.invulnerable = INVULNERABILITY_FRAMES;
+      Player.visible = true;
+      Player.animTimer = 0;
+      Camera.x = 0;
+    }
+
+    function reset() {
+      GameState.state = 'play';
+      GameState.score = 0;
+      GameState.lives = 3;
+      GameState.bananasCollected = 0;
+
+      resetPlayer();
+      initEntities();
+      hideGameOver();
+      updateHUD();
+    }
+
+    function update() {
+      if (GameState.state !== 'play') return;
+
+      // --- Player Input ---
+      Player.vx = 0;
+      if (Input.isPressed('left')) {
+        Player.vx = -MOVE_SPEED;
+        Player.facing = 'left';
+      }
+      if (Input.isPressed('right')) {
+        Player.vx = MOVE_SPEED;
+        Player.facing = 'right';
+      }
+
+      // Jump
+      if (Input.isPressed('jump')) {
+        applyJump(Player);
+      }
+
+      // --- Player Physics ---
+      applyGravity(Player);
+      Player.onGround = false;
+
+      // Move X
+      Player.x += Player.vx;
+      checkSideCollision(Player, platforms);
+
+      // Move Y
+      Player.y += Player.vy;
+      checkTopCollision(Player, platforms);
+
+      // Clamp to world bounds
+      Player.x = Math.max(0, Math.min(Player.x, WORLD_WIDTH - Player.width));
+
+      // Fall off the world
+      if (Player.y > WORLD_HEIGHT) {
+        Player.lives--;
+        updateHUD();
+        if (Player.lives <= 0) {
+          showGameOver();
+        } else {
+          resetPlayer();
+        }
+      }
+
+      // Walk animation
+      if (Player.vx !== 0) {
+        Player.animTimer++;
+        if (Player.animTimer % 10 === 0) {
+          Player.animFrame++;
+        }
+      } else {
+        Player.animFrame = 0;
+        Player.animTimer = 0;
+      }
+
+      // --- Banana Collection ---
+      for (const b of bananas) {
+        if (!b.collected && entitiesCollide(Player, b)) {
+          b.collected = true;
+          GameState.score++;
+          GameState.bananasCollected++;
+          updateHUD();
+        }
+      }
+
+      // --- Goomba Update ---
+      for (const g of goombas) {
+        // Patrol movement
+        g.x += g.vx;
+        if (g.x <= g.patrolLeft || g.x + g.width >= g.patrolRight) {
+          g.vx = -g.vx;
+        }
+
+        // Walk animation
+        g.animFrame += 0.05;
+
+        // Collision with player
+        if (Player.invulnerable <= 0 && entitiesCollide(Player, g)) {
+          GameState.lives--;
+          updateHUD();
+          if (GameState.lives <= 0) {
+            showGameOver();
+          } else {
+            resetPlayer();
+          }
+        }
+      }
+
+      // --- Camera ---
+      cameraFollow(Player);
+    }
+
+    function render(ctx) {
+      // Clear canvas
+      ctx.fillStyle = '#0f0f23';
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // Apply camera
+      ctx.save();
+      applyCamera(ctx);
+
+      // Draw platforms
+      for (const p of platforms) {
+        drawPlatform(ctx, p, Camera.x);
+      }
+
+      // Draw bananas
+      for (const b of bananas) {
+        drawBanana(ctx, b, Camera.x);
+      }
+
+      // Draw goombas
+      for (const g of goombas) {
+        drawGoomba(ctx, g, Camera.x);
+      }
+
+      // Draw player
+      drawPlayer(ctx, Player, Camera.x);
+
+      ctx.restore();
+    }
+
+    let canvas = null;
+
+    function gameLoop(timestamp) {
+      update();
+      const ctx = canvas.getContext('2d');
+      render(ctx);
+      requestAnimationFrame(gameLoop);
+    }
+
+    function init() {
+      canvas = document.getElementById('game');
+      Input.init();
+      initEntities();
+      updateHUD();
+
+      // Restart handlers
+      document.getElementById('restart-btn').addEventListener('click', reset);
+      document.getElementById('gameover-restart-btn').addEventListener('click', reset);
+
+      // Start game loop
+      requestAnimationFrame(gameLoop);
+    }
+
+    // =====================================================
+    // 10. BOOTSTRAP
+    // =====================================================
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
