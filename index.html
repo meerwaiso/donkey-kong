@@ -147,6 +147,7 @@
     <div id="game-over">
       <h1>GAME OVER</h1>
       <p id="final-score">Score: 0</p>
+      <p style="color:#aaa; font-size:14px; margin-bottom:16px; text-shadow:1px 1px 0 #000;">Drücke R zum Neustart</p>
       <button id="gameover-restart-btn">Restart</button>
     </div>
   </div>
@@ -373,7 +374,7 @@
     // 2. GAME STATE
     // =====================================================
     const GameState = {
-      state: 'menu',       // 'menu' | 'play' | 'gameover'
+      state: 'play',       // 'menu' | 'play' | 'gameover'
       score: 0,
       lives: 3,
       bananasTotal: 10,
@@ -420,7 +421,8 @@
         jump: false,
         confirm: false,   // Enter key for menu confirmation
         pause: false,     // P key for pause
-        escape: false     // ESC key for menu
+        escape: false,    // ESC key for menu
+        restart: false    // R key for restart
       },
       justPressed: {},     // Keys that were just pressed (keydown since last clear)
 
@@ -437,7 +439,8 @@
           'ArrowUp': 'jump',
           'Enter': 'confirm',
           'KeyP': 'pause',
-          'Escape': 'escape'
+          'Escape': 'escape',
+          'KeyR': 'restart'
         };
         const key = keyMap[e.code];
         if (key) {
@@ -455,7 +458,8 @@
           'ArrowUp': 'jump',
           'Enter': 'confirm',
           'KeyP': 'pause',
-          'Escape': 'escape'
+          'Escape': 'escape',
+          'KeyR': 'restart'
         };
         const key = keyMap[e.code];
         if (key) {
@@ -662,6 +666,14 @@
       const drawX = p.x - camX;
       const drawY = p.y;
 
+      // Mirror for left-facing direction
+      if (p.facing === 'left') {
+        ctx.save();
+        ctx.translate(drawX + p.width / 2, drawY);
+        ctx.scale(-1, 1);
+        ctx.translate(-(drawX + p.width / 2), -drawY);
+      }
+
       // Color palette (uses world colors if available, falls back to jungle defaults)
       const wc = getWorldConfig(GameState.currentWorld).colors;
       const B = '#8B4513';       // Brown (body)
@@ -823,6 +835,11 @@
       } else {
         ctx.fillRect(drawX + 4, drawY + 30, 9, 2);
         ctx.fillRect(drawX + 19, drawY + 30, 9, 2);
+      }
+
+      // Restore mirror transform
+      if (p.facing === 'left') {
+        ctx.restore();
       }
     }
 
@@ -1565,17 +1582,17 @@
         return;
       }
 
-      // Game Over: handle Enter key for restart
-      if (GameState.state === 'gameover') {
+      // Victory: handle Enter key for restart
+      if (GameState.state === 'victory') {
         if (Input.wasJustPressed('confirm')) {
           reset();
         }
         return;
       }
 
-      // Victory: handle Enter key for restart
-      if (GameState.state === 'victory') {
-        if (Input.wasJustPressed('confirm')) {
+      // Game Over: handle R key for restart
+      if (GameState.state === 'gameover') {
+        if (Input.wasJustPressed('restart')) {
           reset();
         }
         return;
@@ -1592,8 +1609,6 @@
         return;
       }
 
-      if (GameState.state !== 'play') return;
-
       // Pause toggle (P key)
       if (Input.wasJustPressed('pause')) {
         GameState.state = 'paused';
@@ -1609,17 +1624,18 @@
       // --- Player Input ---
       Player.vx = 0;
       if (Input.isPressed('left')) {
-        Player.vx = -MOVE_SPEED;
+        Player.vx = -Player.speed;
         Player.facing = 'left';
       }
       if (Input.isPressed('right')) {
-        Player.vx = MOVE_SPEED;
+        Player.vx = Player.speed;
         Player.facing = 'right';
       }
 
-      // Jump
-      if (Input.isPressed('jump')) {
-        applyJump(Player);
+      // Jump — single press only
+      if (Input.wasJustPressed('jump')) {
+        Player.vy = Player.jumpForce;
+        Player.onGround = false;
       }
 
       // --- Player Physics ---
@@ -1648,10 +1664,10 @@
         }
       }
 
-      // Walk animation
+      // Walk animation (faster cycle for visibility)
       if (Player.vx !== 0) {
         Player.animTimer++;
-        if (Player.animTimer % 10 === 0) {
+        if (Player.animTimer % 6 === 0) {
           Player.animFrame++;
         }
       } else {
@@ -1660,8 +1676,16 @@
       }
 
       // --- Banana Collection ---
+      // Use expanded hitbox for easier banana collection
+      const bananaPadding = 8;
+      const playerExpanded = {
+        x: Player.x - bananaPadding,
+        y: Player.y - bananaPadding,
+        width: Player.width + bananaPadding * 2,
+        height: Player.height + bananaPadding * 2
+      };
       for (const b of bananas) {
-        if (!b.collected && entitiesCollide(Player, b)) {
+        if (!b.collected && entitiesCollide(playerExpanded, b)) {
           b.collected = true;
           GameState.score++;
           GameState.bananasCollected++;
