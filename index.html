@@ -1617,17 +1617,82 @@
     }
 
     /**
-     * Show victory screen when all bananas are collected
+     * Transition to the next level/world after collecting all bananas.
+     * If all worlds are completed, show the final victory screen.
      */
-    function showVictory() {
-      // Save highscore (bonus: +10 for victory)
+    function transitionToNextLevel() {
+      const nextWorld = GameState.currentWorld + 1;
+
+      // Check if there's a next world (0=jungle, 1=snow, 2=desert)
+      if (nextWorld < WORLD_KEYS.length) {
+        // Transition to next world
+        GameState.currentWorld = nextWorld;
+        GameState.bananasCollected = 0;
+
+        // Reset player and entities for the new world
+        resetPlayer();
+        initEntities();
+
+        // Hide any overlays
+        hideGameOver();
+        document.getElementById('game-over').querySelector('h1').textContent = 'GAME OVER';
+
+        // Update HUD to show new world
+        updateHUD();
+
+        // Set state back to play
+        GameState.state = 'play';
+      } else {
+        // All worlds completed — show final victory screen
+        showFinalVictory();
+      }
+    }
+
+    /**
+     * Show final victory screen when all worlds are completed
+     */
+    function showFinalVictory() {
+      // Save highscore (bonus: +10 for final victory)
       const worldName = getWorldConfig(GameState.currentWorld).name;
       HighscoreManager.addScore(GameState.score + 10, `${worldName} (Sieg!)`);
 
       GameState.state = 'victory';
-      document.getElementById('final-score').textContent = `ALLE BANANEN! | Score: ${GameState.score} | Welt: ${worldName}`;
+      document.getElementById('final-score').textContent = `ALLE WELTEN ABGESCHLOSSEN! | Score: ${GameState.score}`;
       document.getElementById('game-over').querySelector('h1').textContent = 'SIEG!';
       document.getElementById('game-over').classList.add('active');
+    }
+
+    /**
+     * Show victory screen when all bananas are collected.
+     * Briefly shows a transition message, then moves to the next level.
+     */
+    function showVictory() {
+      const worldName = getWorldConfig(GameState.currentWorld).name;
+      const nextWorld = GameState.currentWorld + 1;
+
+      // Save highscore (bonus: +10 for level completion)
+      HighscoreManager.addScore(GameState.score + 10, `${worldName} (Sieg!)`);
+
+      if (nextWorld < WORLD_KEYS.length) {
+        // There's a next world — transition after a brief delay
+        const nextWorldName = getWorldConfig(nextWorld).name;
+
+        // Show transition message briefly
+        GameState.state = 'victory';
+        document.getElementById('final-score').textContent = `LEVEL ABGESCHLOSSEN! | Score: ${GameState.score} | Nächstes: Welt ${nextWorldName}`;
+        document.getElementById('game-over').querySelector('h1').textContent = 'LEVEL SIEG!';
+        document.getElementById('game-over').classList.add('active');
+
+        // Auto-transition after 2 seconds
+        setTimeout(() => {
+          if (GameState.state === 'victory') {
+            transitionToNextLevel();
+          }
+        }, 2000);
+      } else {
+        // All worlds completed — show final victory screen
+        showFinalVictory();
+      }
     }
 
     function hideGameOver() {
@@ -1696,6 +1761,7 @@
       GameState.score = 0;
       GameState.lives = 3;
       GameState.bananasCollected = 0;
+      GameState.currentWorld = 0;
 
       resetPlayer();
       initEntities();
@@ -1835,9 +1901,19 @@
         return;
       }
 
-      // Victory: handle Enter key for restart
+      // Victory: handle Enter key — transition to next level or restart
       if (GameState.state === 'victory') {
         if (Input.wasJustPressed('confirm')) {
+          const nextWorld = GameState.currentWorld + 1;
+          if (nextWorld < WORLD_KEYS.length) {
+            // Transition to next level
+            transitionToNextLevel();
+          } else {
+            // All worlds done — restart
+            reset();
+          }
+        }
+        if (Input.wasJustPressed('restart')) {
           reset();
         }
         return;
