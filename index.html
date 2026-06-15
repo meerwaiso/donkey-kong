@@ -60,6 +60,10 @@
       color: #e94560;
     }
 
+    #world-level {
+      color: #87CEEB;
+    }
+
     /* Restart Button */
     #restart-btn {
       pointer-events: all;
@@ -223,6 +227,7 @@
     <!-- HUD -->
     <div id="hud">
       <span id="score">Score: 0</span>
+      <span id="world-level"></span>
       <button id="restart-btn">Restart</button>
       <span id="lives">❤❤❤</span>
     </div>
@@ -284,7 +289,7 @@
 
     // Dead zone: camera only follows when player is beyond this distance from the screen edge
     // Prevents the camera from moving faster than the player (SCRUM-204 fix)
-    const CAMERA_DEAD_ZONE = 150;
+    const CAMERA_DEAD_ZONE = 280;
 
     // Invulnerability frames after hit
     const INVULNERABILITY_FRAMES = 120; // ~2 seconds at 60fps
@@ -1593,6 +1598,8 @@
     function updateHUD() {
       document.getElementById('score').textContent = `Score: ${GameState.score}`;
       document.getElementById('lives').textContent = '❤'.repeat(Math.max(0, GameState.lives));
+      const wc = getWorldConfig(GameState.currentWorld);
+      document.getElementById('world-level').textContent = `Welt ${wc.id} - Level 1`;
     }
 
     // =====================================================
