@@ -79,6 +79,90 @@
       background-color: #c73652;
     }
 
+    /* Settings Overlay */
+    #settings-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.85);
+      display: none;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      z-index: 25;
+      padding: 20px;
+    }
+
+    #settings-overlay.active {
+      display: flex;
+    }
+
+    #settings-overlay h2 {
+      color: #ffd700;
+      font-size: 28px;
+      text-shadow: 3px 3px 0 #000;
+      margin-bottom: 16px;
+      letter-spacing: 4px;
+    }
+
+    #settings-overlay h3 {
+      color: #e94560;
+      font-size: 18px;
+      text-shadow: 2px 2px 0 #000;
+      margin: 12px 0 8px 0;
+    }
+
+    .highscore-list {
+      color: #eee;
+      font-size: 14px;
+      text-shadow: 1px 1px 0 #000;
+      text-align: left;
+      width: 300px;
+    }
+
+    .highscore-list div {
+      padding: 4px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    .highscore-list .rank {
+      color: #ffd700;
+      font-weight: bold;
+      width: 30px;
+      display: inline-block;
+    }
+
+    .highscore-list .hs-score {
+      color: #4CAF50;
+      float: right;
+    }
+
+    .highscore-list .hs-world {
+      color: #aaa;
+      font-size: 12px;
+    }
+
+    #settings-back {
+      margin-top: 20px;
+      background-color: #e94560;
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    #settings-back:hover {
+      background-color: #c73652;
+    }
+
     /* Game Over Overlay */
     #game-over {
       position: absolute;
@@ -143,10 +227,30 @@
       <span id="lives">❤❤❤</span>
     </div>
 
+    <!-- Settings Overlay -->
+    <div id="settings-overlay">
+      <h2>EINSTELLUNGEN</h2>
+      <h3>🏆 Highscore</h3>
+      <div class="highscore-list" id="highscore-list">
+        <div>Keine Einträge</div>
+      </div>
+      <h3>🎮 Steuerung</h3>
+      <div class="highscore-list" style="color:#ccc;">
+        <div>← → Bewegen</div>
+        <div>Space / ↑ Springen</div>
+        <div>P Pause</div>
+        <div>ESC Zurück zum Menü</div>
+        <div>R Neustart (Game Over)</div>
+        <div>O Einstellungen</div>
+      </div>
+      <button id="settings-back">Zurück</button>
+    </div>
+
     <!-- Game Over Overlay -->
     <div id="game-over">
       <h1>GAME OVER</h1>
       <p id="final-score">Score: 0</p>
+      <p style="color:#aaa; font-size:14px; margin-bottom:16px; text-shadow:1px 1px 0 #000;">Drücke R zum Neustart</p>
       <button id="gameover-restart-btn">Restart</button>
     </div>
   </div>
@@ -177,6 +281,10 @@
 
     // Camera smoothing
     const CAMERA_LERP = 0.1;
+
+    // Dead zone: camera only follows when player is beyond this distance from the screen edge
+    // Prevents the camera from moving faster than the player (SCRUM-204 fix)
+    const CAMERA_DEAD_ZONE = 150;
 
     // Invulnerability frames after hit
     const INVULNERABILITY_FRAMES = 120; // ~2 seconds at 60fps
@@ -373,7 +481,7 @@
     // 2. GAME STATE
     // =====================================================
     const GameState = {
-      state: 'menu',       // 'menu' | 'play' | 'gameover'
+      state: 'play',       // 'menu' | 'play' | 'gameover'
       score: 0,
       lives: 3,
       bananasTotal: 10,
@@ -420,7 +528,8 @@
         jump: false,
         confirm: false,   // Enter key for menu confirmation
         pause: false,     // P key for pause
-        escape: false     // ESC key for menu
+        escape: false,    // ESC key for menu
+        restart: false    // R key for restart
       },
       justPressed: {},     // Keys that were just pressed (keydown since last clear)
 
@@ -437,7 +546,8 @@
           'ArrowUp': 'jump',
           'Enter': 'confirm',
           'KeyP': 'pause',
-          'Escape': 'escape'
+          'Escape': 'escape',
+          'KeyR': 'restart'
         };
         const key = keyMap[e.code];
         if (key) {
@@ -455,7 +565,8 @@
           'ArrowUp': 'jump',
           'Enter': 'confirm',
           'KeyP': 'pause',
-          'Escape': 'escape'
+          'Escape': 'escape',
+          'KeyR': 'restart'
         };
         const key = keyMap[e.code];
         if (key) {
@@ -508,6 +619,11 @@
         ctx.font = 'bold 32px Courier New';
         ctx.textAlign = 'center';
         ctx.fillText('WELT AUSWAHLEN', CANVAS_WIDTH / 2, 60);
+
+        // Settings button hint
+        ctx.fillStyle = '#aaa';
+        ctx.font = '12px Courier New';
+        ctx.fillText('O = Einstellungen | ESC = Zurück', CANVAS_WIDTH / 2, 370);
 
         // Subtitle
         ctx.fillStyle = '#aaa';
@@ -661,6 +777,14 @@
 
       const drawX = p.x - camX;
       const drawY = p.y;
+
+      // Mirror for left-facing direction
+      if (p.facing === 'left') {
+        ctx.save();
+        ctx.translate(drawX + p.width / 2, drawY);
+        ctx.scale(-1, 1);
+        ctx.translate(-(drawX + p.width / 2), -drawY);
+      }
 
       // Color palette (uses world colors if available, falls back to jungle defaults)
       const wc = getWorldConfig(GameState.currentWorld).colors;
@@ -823,6 +947,11 @@
       } else {
         ctx.fillRect(drawX + 4, drawY + 30, 9, 2);
         ctx.fillRect(drawX + 19, drawY + 30, 9, 2);
+      }
+
+      // Restore mirror transform
+      if (p.facing === 'left') {
+        ctx.restore();
       }
     }
 
@@ -1339,17 +1468,25 @@
 
     function checkTopCollision(entity, plats) {
       for (const p of plats) {
+        // Horizontal overlap check
         if (
           entity.x + entity.width > p.x &&
-          entity.x < p.x + p.width &&
-          entity.y + entity.height >= p.y &&
-          entity.y + entity.height <= p.y + p.height + 8 &&
-          entity.vy >= 0
+          entity.x < p.x + p.width
         ) {
-          entity.y = p.y - entity.height;
-          entity.vy = 0;
-          entity.onGround = true;
-          return true;
+          // One-Way Platform: only collide from above when falling
+          // Condition: player bottom was at or above platform top in previous frame
+          // entity.y + entity.height - entity.vy <= p.y means player was above before this frame
+          // Also require vy >= 0 (falling) and current bottom is near platform top
+          if (
+            entity.vy >= 0 &&
+            entity.y + entity.height >= p.y &&
+            (entity.y + entity.height - entity.vy) <= p.y + 4
+          ) {
+            entity.y = p.y - entity.height;
+            entity.vy = 0;
+            entity.onGround = true;
+            return true;
+          }
         }
       }
       return false;
@@ -1402,14 +1539,44 @@
     // =====================================================
 
     function cameraFollow(target) {
-      // Target: center the player on screen
-      const targetX = target.x - CANVAS_WIDTH / 2 + target.width / 2;
+      // Player screen position (where the player appears on screen)
+      // Used for dead zone logic — calculated before camera adjustment
+      let playerScreenX = target.x - Camera.x;
 
-      // Smooth lerp
-      Camera.x += (targetX - Camera.x) * CAMERA_LERP;
+      // Dead zone boundaries within the viewport
+      const leftBoundary  = CAMERA_DEAD_ZONE;
+      const rightBoundary = CANVAS_WIDTH - CAMERA_DEAD_ZONE;
+
+      // Only move the camera when the player is outside the dead zone
+      if (playerScreenX > rightBoundary) {
+        // Player near right edge — shift camera right so player is at the dead zone boundary
+        const targetX = target.x - rightBoundary;
+        Camera.x += (targetX - Camera.x) * CAMERA_LERP;
+      } else if (playerScreenX < leftBoundary) {
+        // Player near left edge — shift camera left so player is at the dead zone boundary
+        const targetX = target.x - leftBoundary;
+        Camera.x += (targetX - Camera.x) * CAMERA_LERP;
+      }
+      // Otherwise: player is inside the dead zone, camera stays still
 
       // Clamp to world bounds
       Camera.x = Math.max(0, Math.min(Camera.x, WORLD_WIDTH - CANVAS_WIDTH));
+
+      // SCRUM-204 fix: Recalculate playerScreenX after clamping.
+      // The previous value was stale — after clamping, Camera.x may have changed,
+      // so the old playerScreenX no longer reflects the actual on-screen position.
+      // Using the stale value caused incorrect corrections that pushed the player off-screen.
+      playerScreenX = target.x - Camera.x;
+
+      // CRITICAL: Ensure player never leaves the visible screen area (SCRUM-204 fix)
+      // If camera is too far right, pull it back so player stays on screen
+      if (playerScreenX > CANVAS_WIDTH - target.width) {
+        Camera.x = target.x - (CANVAS_WIDTH - target.width);
+      }
+      // If camera is too far left, push it right so player stays on screen
+      if (playerScreenX < 0) {
+        Camera.x = target.x;
+      }
 
       // Y stays at 0 (no vertical scrolling needed for this game)
       Camera.y = 0;
@@ -1433,8 +1600,11 @@
     // =====================================================
 
     function showGameOver() {
-      GameState.state = 'gameover';
+      // Save highscore
       const worldName = getWorldConfig(GameState.currentWorld).name;
+      HighscoreManager.addScore(GameState.score, worldName);
+
+      GameState.state = 'gameover';
       document.getElementById('final-score').textContent = `Score: ${GameState.score} | Welt: ${worldName}`;
       document.getElementById('game-over').classList.add('active');
     }
@@ -1443,8 +1613,11 @@
      * Show victory screen when all bananas are collected
      */
     function showVictory() {
-      GameState.state = 'victory';
+      // Save highscore (bonus: +10 for victory)
       const worldName = getWorldConfig(GameState.currentWorld).name;
+      HighscoreManager.addScore(GameState.score + 10, `${worldName} (Sieg!)`);
+
+      GameState.state = 'victory';
       document.getElementById('final-score').textContent = `ALLE BANANEN! | Score: ${GameState.score} | Welt: ${worldName}`;
       document.getElementById('game-over').querySelector('h1').textContent = 'SIEG!';
       document.getElementById('game-over').classList.add('active');
@@ -1526,6 +1699,94 @@
     }
 
     // =====================================================
+    // 9.4 HIGHSCORE MANAGER (NEU — SCRUM-201)
+    // =====================================================
+
+    const HighscoreManager = {
+      STORAGE_KEY: 'dk_highscores',
+      MAX_ENTRIES: 10,
+
+      /**
+       * Load highscores from localStorage
+       */
+      load() {
+        try {
+          const data = localStorage.getItem(this.STORAGE_KEY);
+          return data ? JSON.parse(data) : [];
+        } catch (e) {
+          return [];
+        }
+      },
+
+      /**
+       * Save highscores to localStorage
+       */
+      save(scores) {
+        try {
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(scores));
+        } catch (e) {
+          // localStorage not available
+        }
+      },
+
+      /**
+       * Add a new score and keep top N
+       */
+      addScore(score, worldName) {
+        const scores = this.load();
+        scores.push({
+          score: score,
+          world: worldName,
+          date: new Date().toLocaleDateString('de-DE')
+        });
+        // Sort descending by score
+        scores.sort((a, b) => b.score - a.score);
+        // Keep only top N
+        const trimmed = scores.slice(0, this.MAX_ENTRIES);
+        this.save(trimmed);
+        return trimmed;
+      },
+
+      /**
+       * Render the highscore list in the settings overlay
+       */
+      render() {
+        const scores = this.load();
+        const container = document.getElementById('highscore-list');
+        if (!container) return;
+
+        if (scores.length === 0) {
+          container.innerHTML = '<div>Keine Einträge</div>';
+          return;
+        }
+
+        let html = '';
+        scores.forEach((entry, i) => {
+          html += `<div>`;
+          html += `<span class="rank">${i + 1}.</span>`;
+          html += `<span class="hs-world">${entry.world || '—'}</span>`;
+          html += ` — ${entry.date || ''}`;
+          html += `<span class="hs-score">${entry.score}</span>`;
+          html += `</div>`;
+        });
+        container.innerHTML = html;
+      }
+    };
+
+    // =====================================================
+    // 9.4.1 SETTINGS OVERLAY
+    // =====================================================
+
+    function showSettings() {
+      HighscoreManager.render();
+      document.getElementById('settings-overlay').classList.add('active');
+    }
+
+    function hideSettings() {
+      document.getElementById('settings-overlay').classList.remove('active');
+    }
+
+    // =====================================================
     // 9.5 PAUSE OVERLAY RENDERER
     // =====================================================
 
@@ -1544,6 +1805,7 @@
       ctx.font = '18px monospace';
       ctx.fillText('P = Fortsetzen', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
       ctx.fillText('ESC = Hauptmenü', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 55);
+      ctx.fillText('O = Einstellungen', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
       ctx.textAlign = 'left';
     }
 
@@ -1557,6 +1819,7 @@
       MenuManager.selectedIndex = 0;
       Camera.x = 0;
       hideGameOver();
+      hideSettings();
     }
 
     function update() {
@@ -1565,17 +1828,17 @@
         return;
       }
 
-      // Game Over: handle Enter key for restart
-      if (GameState.state === 'gameover') {
+      // Victory: handle Enter key for restart
+      if (GameState.state === 'victory') {
         if (Input.wasJustPressed('confirm')) {
           reset();
         }
         return;
       }
 
-      // Victory: handle Enter key for restart
-      if (GameState.state === 'victory') {
-        if (Input.wasJustPressed('confirm')) {
+      // Game Over: handle R key for restart
+      if (GameState.state === 'gameover') {
+        if (Input.wasJustPressed('restart')) {
           reset();
         }
         return;
@@ -1589,10 +1852,20 @@
         if (Input.wasJustPressed('escape')) {
           returnToMenu();
         }
+        if (Input.wasJustPressed('confirm')) {
+          showSettings();
+        }
         return;
       }
 
-      if (GameState.state !== 'play') return;
+      // Settings: ESC to go back to previous state
+      if (GameState.state === 'settings') {
+        if (Input.wasJustPressed('escape')) {
+          hideSettings();
+          GameState.state = 'menu';
+        }
+        return;
+      }
 
       // Pause toggle (P key)
       if (Input.wasJustPressed('pause')) {
@@ -1606,20 +1879,28 @@
         return;
       }
 
+      // O to open settings during gameplay
+      if (Input.wasJustPressed('confirm')) {
+        showSettings();
+        GameState.state = 'settings';
+        return;
+      }
+
       // --- Player Input ---
       Player.vx = 0;
       if (Input.isPressed('left')) {
-        Player.vx = -MOVE_SPEED;
+        Player.vx = -Player.speed;
         Player.facing = 'left';
       }
       if (Input.isPressed('right')) {
-        Player.vx = MOVE_SPEED;
+        Player.vx = Player.speed;
         Player.facing = 'right';
       }
 
-      // Jump
-      if (Input.isPressed('jump')) {
-        applyJump(Player);
+      // Jump — single press only
+      if (Input.wasJustPressed('jump')) {
+        Player.vy = Player.jumpForce;
+        Player.onGround = false;
       }
 
       // --- Player Physics ---
@@ -1648,10 +1929,10 @@
         }
       }
 
-      // Walk animation
+      // Walk animation (faster cycle for visibility)
       if (Player.vx !== 0) {
         Player.animTimer++;
-        if (Player.animTimer % 10 === 0) {
+        if (Player.animTimer % 6 === 0) {
           Player.animFrame++;
         }
       } else {
@@ -1660,8 +1941,16 @@
       }
 
       // --- Banana Collection ---
+      // Use expanded hitbox for easier banana collection
+      const bananaPadding = 8;
+      const playerExpanded = {
+        x: Player.x - bananaPadding,
+        y: Player.y - bananaPadding,
+        width: Player.width + bananaPadding * 2,
+        height: Player.height + bananaPadding * 2
+      };
       for (const b of bananas) {
-        if (!b.collected && entitiesCollide(Player, b)) {
+        if (!b.collected && entitiesCollide(playerExpanded, b)) {
           b.collected = true;
           GameState.score++;
           GameState.bananasCollected++;
@@ -1769,6 +2058,12 @@
       // Restart handlers
       document.getElementById('restart-btn').addEventListener('click', reset);
       document.getElementById('gameover-restart-btn').addEventListener('click', reset);
+
+      // Settings back button
+      document.getElementById('settings-back').addEventListener('click', () => {
+        hideSettings();
+        GameState.state = 'menu';
+      });
 
       // Start game loop
       requestAnimationFrame(gameLoop);
