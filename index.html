@@ -2055,6 +2055,7 @@
 
     function init() {
       canvas = document.getElementById('game');
+      canvas.focus();
       Input.init();
       GameState.state = 'menu';
       GameState.currentWorld = 0;
