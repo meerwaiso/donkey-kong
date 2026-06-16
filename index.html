@@ -1759,12 +1759,15 @@
       Camera.x = 0;
     }
 
-    function reset() {
+    function reset(fromWorld) {
       GameState.state = 'play';
       GameState.score = 0;
       GameState.lives = 3;
       GameState.bananasCollected = 0;
-      GameState.currentWorld = 0;
+      // fromWorld: restart from world 0, keep currentWorld otherwise
+      if (fromWorld !== undefined) {
+        GameState.currentWorld = fromWorld;
+      }
 
       resetPlayer();
       initEntities();
@@ -2143,9 +2146,9 @@
       resetPlayer();
       updateHUD();
 
-      // Restart handlers
-      document.getElementById('restart-btn').addEventListener('click', reset);
-      document.getElementById('gameover-restart-btn').addEventListener('click', reset);
+      // Restart handlers — always restart from world 0
+      document.getElementById('restart-btn').addEventListener('click', () => reset(0));
+      document.getElementById('gameover-restart-btn').addEventListener('click', () => reset(0));
 
       // Settings back button
       document.getElementById('settings-back').addEventListener('click', () => {
