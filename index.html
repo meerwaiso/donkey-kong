@@ -167,6 +167,25 @@
       background-color: #c73652;
     }
 
+    #reset-progress-btn {
+      margin-top: 10px;
+      background-color: #555;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #reset-progress-btn:hover {
+      background-color: #777;
+    }
+
     /* Game Over Overlay */
     #game-over {
       position: absolute;
@@ -218,6 +237,47 @@
     #game-over button:hover {
       background-color: #c73652;
     }
+
+    /* Boss HP Bar */
+    #boss-hp-container {
+      position: absolute;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 300px;
+      display: none;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    #boss-hp-container.active {
+      display: block;
+    }
+
+    #boss-name {
+      color: #e94560;
+      font-size: 14px;
+      font-weight: bold;
+      text-shadow: 2px 2px 0 #000;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    #boss-hp-bar {
+      width: 100%;
+      height: 12px;
+      background-color: #333;
+      border: 2px solid #e94560;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    #boss-hp-fill {
+      height: 100%;
+      background-color: #e94560;
+      transition: width 0.3s ease;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -230,6 +290,14 @@
       <span id="world-level"></span>
       <button id="restart-btn">Restart</button>
       <span id="lives">❤❤❤</span>
+    </div>
+
+    <!-- Boss HP Bar -->
+    <div id="boss-hp-container">
+      <div id="boss-name">BOSS</div>
+      <div id="boss-hp-bar">
+        <div id="boss-hp-fill"></div>
+      </div>
     </div>
 
     <!-- Settings Overlay -->
@@ -248,6 +316,7 @@
         <div>R Neustart (Game Over)</div>
         <div>O Einstellungen</div>
       </div>
+      <button id="reset-progress-btn">Fortschritt zurücksetzen</button>
       <button id="settings-back">Zurück</button>
     </div>
 
@@ -284,26 +353,26 @@
     const GOOMBA_WIDTH = 24;
     const GOOMBA_HEIGHT = 24;
 
+    // Boss sizes
+    const BOSS_WIDTH = 64;
+    const BOSS_HEIGHT = 64;
+    const BOSS_PROJECTILE_WIDTH = 12;
+    const BOSS_PROJECTILE_HEIGHT = 12;
+
     // Camera smoothing
     const CAMERA_LERP = 0.1;
-
-    // Dead zone: camera only follows when player is beyond this distance from the screen edge
-    // Prevents the camera from moving faster than the player (SCRUM-204 fix)
     const CAMERA_DEAD_ZONE = 280;
-
-    // Invulnerability frames after hit
-    const INVULNERABILITY_FRAMES = 120; // ~2 seconds at 60fps
+    const INVULNERABILITY_FRAMES = 120;
 
     // Level: Platforms
     const PLATFORMS = [
-      { x: 0,     y: 360, width: 400 },   // Ground (left)
-      { x: 350,   y: 280, width: 200 },   // Middle-bottom
-      { x: 100,   y: 200, width: 250 },   // Left-top
-      { x: 450,   y: 160, width: 300 },   // Right-top
-      { x: 850,   y: 240, width: 350 },   // Right-bottom (further)
+      { x: 0,     y: 360, width: 400 },
+      { x: 350,   y: 280, width: 200 },
+      { x: 100,   y: 200, width: 250 },
+      { x: 450,   y: 160, width: 300 },
+      { x: 850,   y: 240, width: 350 },
     ];
 
-    // Level: Bananas
     const BANANA_POSITIONS = [
       { x: 50,  y: 340 }, { x: 150, y: 340 }, { x: 300, y: 340 },
       { x: 400, y: 260 }, { x: 500, y: 260 },
@@ -312,51 +381,31 @@
       { x: 950, y: 220 },
     ];
 
-    // Level: Goombas (default — can be overridden by WorldConfig)
     const GOOMBA_CONFIGS = [
-      {
-        platformIndex: 2,
-        x: 150, y: 176,
-        speed: 1.5,
-        patrolLeft: 100,
-        patrolRight: 330
-      },
-      {
-        platformIndex: 4,
-        x: 900, y: 216,
-        speed: 2.0,
-        patrolLeft: 850,
-        patrolRight: 1180
-      },
+      { platformIndex: 2, x: 150, y: 176, speed: 1.5, patrolLeft: 100, patrolRight: 330 },
+      { platformIndex: 4, x: 900, y: 216, speed: 2.0, patrolLeft: 850, patrolRight: 1180 },
     ];
 
     // =====================================================
-    // 1.1 WORLD CONFIGURATION (NEU — Phase 1: WorldConfig)
+    // 1.1 WORLD CONFIGURATION
     // =====================================================
     const WorldConfig = {
       jungle: {
         id: 1,
         name: "Dschungel",
         colors: {
-          sky: "#1a472a",
-          skyGradient: "#2d5a3f",
-          ground: "#3d2b1f",
-          platform: "#8B6914",
-          platformHighlight: "#A0822A",
-          platformShadow: "#6B5310",
-          background: "#0d2818",
-          particle: "#4CAF50",
-          accent: "#FFD700"
+          sky: "#1a472a", skyGradient: "#2d5a3f",
+          ground: "#3d2b1f", platform: "#8B6914",
+          platformHighlight: "#A0822A", platformShadow: "#6B5310",
+          background: "#0d2818", particle: "#4CAF50", accent: "#FFD700"
         },
         background: {
-          trees: true,
-          vines: true,
-          clouds: true,
-          particles: "leaves",
-          parallaxLayers: 2
+          trees: true, vines: true, clouds: true,
+          particles: "leaves", parallaxLayers: 2
         },
         enemyTheme: "barrel",
         platformTheme: "wood",
+        bossType: "concrete_crusher",
         layout: {
           platforms: [
             { x: 0,     y: 360, width: 1600 },
@@ -378,31 +427,22 @@
           ]
         }
       },
-
       snow: {
         id: 3,
         name: "Schnee",
         colors: {
-          sky: "#4a6fa5",
-          skyGradient: "#8ba4c7",
-          ground: "#c8d6e5",
-          platform: "#7f8fa6",
-          platformHighlight: "#a4b0be",
-          platformShadow: "#576574",
-          background: "#2c3e50",
-          particle: "#dfe6e9",
-          accent: "#74b9ff"
+          sky: "#4a6fa5", skyGradient: "#8ba4c7",
+          ground: "#c8d6e5", platform: "#7f8fa6",
+          platformHighlight: "#a4b0be", platformShadow: "#576574",
+          background: "#2c3e50", particle: "#dfe6e9", accent: "#74b9ff"
         },
         background: {
-          trees: false,
-          vines: false,
-          clouds: true,
-          mountains: true,
-          particles: "snow",
-          parallaxLayers: 3
+          trees: false, vines: false, clouds: true,
+          mountains: true, particles: "snow", parallaxLayers: 3
         },
         enemyTheme: "penguin",
         platformTheme: "ice",
+        bossType: "frost_king",
         layout: {
           platforms: [
             { x: 0,     y: 360, width: 350 },
@@ -424,32 +464,22 @@
           ]
         }
       },
-
       desert: {
         id: 2,
         name: "Wueste",
         colors: {
-          sky: "#e17055",
-          skyGradient: "#fdcb6e",
-          ground: "#d4a574",
-          platform: "#b8860b",
-          platformHighlight: "#daa520",
-          platformShadow: "#8b6914",
-          background: "#6b3a2a",
-          particle: "#fdcb6e",
-          accent: "#e17055"
+          sky: "#e17055", skyGradient: "#fdcb6e",
+          ground: "#d4a574", platform: "#b8860b",
+          platformHighlight: "#daa520", platformShadow: "#8b6914",
+          background: "#6b3a2a", particle: "#fdcb6e", accent: "#e17055"
         },
         background: {
-          trees: false,
-          vines: false,
-          clouds: false,
-          dunes: true,
-          pyramids: true,
-          particles: "sand",
-          parallaxLayers: 2
+          trees: false, vines: false, clouds: false,
+          dunes: true, pyramids: true, particles: "sand", parallaxLayers: 2
         },
         enemyTheme: "scorpion",
         platformTheme: "stone",
+        bossType: "sand_worm",
         layout: {
           platforms: [
             { x: 0,     y: 360, width: 450 },
@@ -473,25 +503,89 @@
       }
     };
 
-    // World keys array for indexed access (1=Dschungel, 2=Wueste, 3=Eis)
     const WORLD_KEYS = ['jungle', 'desert', 'snow'];
 
-    // Helper: Get world config by index (0=jungle, 1=snow, 2=desert)
     function getWorldConfig(worldIndex) {
       const key = WORLD_KEYS[worldIndex] || WORLD_KEYS[0];
       return WorldConfig[key];
     }
 
     // =====================================================
+    // 1.2 LEVEL GATING (SCRUM-209)
+    // =====================================================
+    const LevelGating = {
+      STORAGE_KEY: 'dk_level_progress',
+
+      /**
+       * Load unlocked levels from localStorage
+       * Returns array of unlocked world indices [0, 1, 2]
+       */
+      load() {
+        try {
+          const data = localStorage.getItem(this.STORAGE_KEY);
+          return data ? JSON.parse(data) : [0]; // Level 1 always unlocked
+        } catch (e) {
+          return [0];
+        }
+      },
+
+      /**
+       * Save unlocked levels
+       */
+      save(unlocked) {
+        try {
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(unlocked));
+        } catch (e) {
+          // localStorage not available
+        }
+      },
+
+      /**
+       * Check if a world is unlocked
+       */
+      isUnlocked(worldIndex) {
+        const unlocked = this.load();
+        return unlocked.includes(worldIndex);
+      },
+
+      /**
+       * Unlock a world
+       */
+      unlock(worldIndex) {
+        const unlocked = this.load();
+        if (!unlocked.includes(worldIndex)) {
+          unlocked.push(worldIndex);
+          unlocked.sort((a, b) => a - b);
+          this.save(unlocked);
+        }
+      },
+
+      /**
+       * Reset all progress (lock all except level 1)
+       */
+      reset() {
+        this.save([0]);
+      },
+
+      /**
+       * Get lock message for a locked level
+       */
+      getLockMessage(worldIndex) {
+        return `Schließe Level ${worldIndex} ab, um dieses Level freizuschalten`;
+      }
+    };
+
+    // =====================================================
     // 2. GAME STATE
     // =====================================================
     const GameState = {
-      state: 'play',       // 'menu' | 'play' | 'gameover'
+      state: 'play',       // 'menu' | 'play' | 'boss_fight' | 'boss_defeated' | 'gameover' | 'victory' | 'paused' | 'settings'
       score: 0,
       lives: 3,
       bananasTotal: 10,
       bananasCollected: 0,
-      currentWorld: 0      // 0=jungle, 1=snow, 2=desert
+      currentWorld: 0,
+      bossDefeated: false
     };
 
     const Player = {
@@ -509,7 +603,6 @@
       visible: true,
       spawnX: 50,
       spawnY: 328,
-      // Character stats (for character switching)
       speed: MOVE_SPEED,
       jumpForce: JUMP_FORCE
     };
@@ -517,6 +610,7 @@
     let platforms = [];
     let bananas = [];
     let goombas = [];
+    let bossProjectiles = [];
 
     const Camera = {
       x: 0,
@@ -524,20 +618,431 @@
     };
 
     // =====================================================
+    // 2.1 BOSS STATE
+    // =====================================================
+    const Boss = {
+      active: false,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      width: BOSS_WIDTH,
+      height: BOSS_HEIGHT,
+      hp: 0,
+      maxHp: 0,
+      type: '',
+      state: 'idle',       // 'idle' | 'attack' | 'warn' | 'dying'
+      stateTimer: 0,
+      attackTimer: 0,
+      attackPattern: 0,
+      facing: 'left',
+      animFrame: 0,
+      hitFlash: 0,
+
+      /**
+       * Initialize boss for the current world
+       */
+      init(worldIndex) {
+        const wc = getWorldConfig(worldIndex);
+        this.type = wc.bossType;
+        this.active = true;
+        this.state = 'idle';
+        this.stateTimer = 0;
+        this.attackTimer = 0;
+        this.attackPattern = 0;
+        this.hitFlash = 0;
+        this.animFrame = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.facing = 'left';
+
+        // Position boss at right side of screen
+        this.x = WORLD_WIDTH - 200;
+        this.y = 360 - BOSS_HEIGHT;
+
+        // World-specific boss stats
+        switch (this.type) {
+          case 'concrete_crusher':
+            this.maxHp = 5;
+            this.hp = 5;
+            break;
+          case 'frost_king':
+            this.maxHp = 7;
+            this.hp = 7;
+            break;
+          case 'sand_worm':
+            this.maxHp = 10;
+            this.hp = 10;
+            break;
+          default:
+            this.maxHp = 5;
+            this.hp = 5;
+        }
+
+        // Show boss HP bar
+        const hpContainer = document.getElementById('boss-hp-container');
+        const bossName = document.getElementById('boss-name');
+        hpContainer.classList.add('active');
+        bossName.textContent = this.getBossName();
+        this.updateHpBar();
+      },
+
+      getBossName() {
+        switch (this.type) {
+          case 'concrete_crusher': return 'CONCRETE CRUSHER';
+          case 'frost_king': return 'FROST KING';
+          case 'sand_worm': return 'SAND WURM';
+          default: return 'BOSS';
+        }
+      },
+
+      updateHpBar() {
+        const fill = document.getElementById('boss-hp-fill');
+        fill.style.width = `${(this.hp / this.maxHp) * 100}%`;
+      },
+
+      deactivate() {
+        this.active = false;
+        document.getElementById('boss-hp-container').classList.remove('active');
+        bossProjectiles = [];
+      },
+
+      /**
+       * Take damage from player (jump on top)
+       */
+      takeDamage() {
+        if (this.state === 'dying') return;
+        this.hp--;
+        this.hitFlash = 10;
+        this.updateHpBar();
+
+        if (this.hp <= 0) {
+          this.state = 'dying';
+          this.stateTimer = 60;
+        } else {
+          // Brief stun after hit
+          this.state = 'idle';
+          this.stateTimer = 30;
+        }
+      },
+
+      /**
+       * Update boss AI
+       */
+      update() {
+        if (!this.active) return;
+
+        this.animFrame += 0.05;
+
+        if (this.hitFlash > 0) this.hitFlash--;
+
+        // Dying animation
+        if (this.state === 'dying') {
+          this.stateTimer--;
+          if (this.stateTimer <= 0) {
+            this.active = false;
+            GameState.bossDefeated = true;
+            // Unlock next world
+            const nextWorld = GameState.currentWorld + 1;
+            if (nextWorld < WORLD_KEYS.length) {
+              LevelGating.unlock(nextWorld);
+            }
+            this.deactivate();
+            // Show level complete
+            showBossDefeated();
+          }
+          return;
+        }
+
+        // Face player
+        if (Player.x < this.x) {
+          this.facing = 'left';
+        } else {
+          this.facing = 'right';
+        }
+
+        // Idle between attacks
+        if (this.state === 'idle') {
+          this.stateTimer--;
+          if (this.stateTimer <= 0) {
+            this.state = 'attack';
+            this.attackTimer = 0;
+            this.attackPattern = Math.floor(Math.random() * this.getAttackCount());
+          }
+          return;
+        }
+
+        // Execute attack
+        if (this.state === 'attack') {
+          this.executeAttack();
+        }
+      },
+
+      getAttackCount() {
+        switch (this.type) {
+          case 'concrete_crusher': return 2;
+          case 'frost_king': return 3;
+          case 'sand_worm': return 4;
+          default: return 2;
+        }
+      },
+
+      executeAttack() {
+        switch (this.type) {
+          case 'concrete_crusher':
+            this.crusherAttack();
+            break;
+          case 'frost_king':
+            this.frostKingAttack();
+            break;
+          case 'sand_worm':
+            this.sandWormAttack();
+            break;
+        }
+      },
+
+      // --- Concrete Crusher Attacks ---
+      crusherAttack() {
+        // Attack 0: Hammer slam (ground shake)
+        // Attack 1: Fireball throw
+        if (this.attackPattern === 0) {
+          // Hammer slam - boss jumps and slams down
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 30; // 0.5s warning
+            this.attackTimer = 1;
+          } else if (this.attackTimer === 1) {
+            // Slam down - create damage zone
+            this.vy = 10;
+            this.attackTimer = 2;
+          } else if (this.attackTimer === 2) {
+            if (this.y >= 360 - BOSS_HEIGHT) {
+              this.y = 360 - BOSS_HEIGHT;
+              this.vy = 0;
+              // Damage player if in range
+              if (Math.abs(Player.x - this.x) < 120 && Player.invulnerable <= 0) {
+                damagePlayer();
+              }
+              this.state = 'idle';
+              this.stateTimer = 60;
+              this.attackTimer = 0;
+            }
+          }
+        } else {
+          // Fireball
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 20;
+            this.attackTimer = 1;
+          } else if (this.attackTimer === 1) {
+            // Spawn fireball
+            bossProjectiles.push({
+              x: this.x + (this.facing === 'right' ? BOSS_WIDTH : -BOSS_PROJECTILE_WIDTH),
+              y: this.y + BOSS_HEIGHT / 2 - BOSS_PROJECTILE_HEIGHT / 2,
+              vx: this.facing === 'right' ? 5 : -5,
+              vy: 0,
+              width: BOSS_PROJECTILE_WIDTH,
+              height: BOSS_PROJECTILE_HEIGHT,
+              type: 'fireball',
+              lifetime: 180
+            });
+            this.state = 'idle';
+            this.stateTimer = 60;
+            this.attackTimer = 0;
+          }
+        }
+      },
+
+      // --- Frost King Attacks ---
+      frostKingAttack() {
+        // Attack 0: Ice wedge (projectile)
+        // Attack 1: Frost wave (ground)
+        // Attack 2: Penguin summon
+        if (this.attackPattern === 0) {
+          // Ice wedge projectile
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 20;
+            this.attackTimer = 1;
+          } else if (this.attackTimer === 1) {
+            bossProjectiles.push({
+              x: this.x + BOSS_WIDTH / 2,
+              y: this.y + BOSS_HEIGHT / 2,
+              vx: (Player.x < this.x ? -1 : 1) * 4,
+              vy: -3,
+              width: BOSS_PROJECTILE_WIDTH,
+              height: BOSS_PROJECTILE_HEIGHT,
+              type: 'ice_wedge',
+              lifetime: 200
+            });
+            this.state = 'idle';
+            this.stateTimer = 50;
+            this.attackTimer = 0;
+          }
+        } else if (this.attackPattern === 1) {
+          // Frost wave
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 40;
+            this.attackTimer = 1;
+          } else if (this.attackTimer === 1) {
+            // Spawn ground wave
+            bossProjectiles.push({
+              x: this.x,
+              y: 360 - 20,
+              vx: this.facing === 'right' ? 3 : -3,
+              vy: 0,
+              width: 40,
+              height: 20,
+              type: 'frost_wave',
+              lifetime: 120
+            });
+            this.state = 'idle';
+            this.stateTimer = 60;
+            this.attackTimer = 0;
+          }
+        } else {
+          // Penguin summon
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 30;
+            this.attackTimer = 1;
+          } else if (this.attackTimer === 1) {
+            // Spawn a penguin minion
+            goombas.push({
+              x: this.x + BOSS_WIDTH,
+              y: 360 - GOOMBA_HEIGHT,
+              vx: -1.5,
+              width: GOOMBA_WIDTH,
+              height: GOOMBA_HEIGHT,
+              patrolLeft: 0,
+              patrolRight: this.x + BOSS_WIDTH + 50,
+              animFrame: 0,
+              platformIndex: -1,
+              isMinion: true
+            });
+            this.state = 'idle';
+            this.stateTimer = 80;
+            this.attackTimer = 0;
+          }
+        }
+      },
+
+      // --- Sand Worm Attacks ---
+      sandWormAttack() {
+        // Attack 0: Emerge from ground
+        // Attack 1: Sand ball rain
+        // Attack 2: Rotation attack
+        // Attack 3: Scorpion summon
+        if (this.attackPattern === 0) {
+          // Emerge - boss jumps up and down
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 25;
+            this.attackTimer = 1;
+          } else if (this.attackTimer === 1) {
+            this.vy = -15;
+            this.attackTimer = 2;
+          } else if (this.attackTimer === 2) {
+            applyGravity(this);
+            this.y += this.vy;
+            if (this.y >= 360 - BOSS_HEIGHT) {
+              this.y = 360 - BOSS_HEIGHT;
+              this.vy = 0;
+              if (Math.abs(Player.x - this.x) < 100 && Player.invulnerable <= 0) {
+                damagePlayer();
+              }
+              this.state = 'idle';
+              this.stateTimer = 50;
+              this.attackTimer = 0;
+            }
+          }
+        } else if (this.attackPattern === 1) {
+          // Sand ball rain
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 30;
+            this.attackTimer = 1;
+          } else if (this.attackTimer >= 1 && this.attackTimer <= 5) {
+            bossProjectiles.push({
+              x: Player.x + Math.random() * 60 - 30,
+              y: 0,
+              vx: 0,
+              vy: 4,
+              width: BOSS_PROJECTILE_WIDTH,
+              height: BOSS_PROJECTILE_HEIGHT,
+              type: 'sand_ball',
+              lifetime: 150
+            });
+            this.attackTimer++;
+            if (this.attackTimer > 5) {
+              this.state = 'idle';
+              this.stateTimer = 60;
+              this.attackTimer = 0;
+            }
+          }
+        } else if (this.attackPattern === 2) {
+          // Rotation - spawn spinning projectiles
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 25;
+            this.attackTimer = 1;
+          } else if (this.attackTimer >= 1 && this.attackTimer <= 8) {
+            const angle = (this.attackTimer - 1) * (Math.PI * 2 / 8);
+            bossProjectiles.push({
+              x: this.x + BOSS_WIDTH / 2,
+              y: this.y + BOSS_HEIGHT / 2,
+              vx: Math.cos(angle) * 3,
+              vy: Math.sin(angle) * 3,
+              width: BOSS_PROJECTILE_WIDTH,
+              height: BOSS_PROJECTILE_HEIGHT,
+              type: 'sand_spin',
+              lifetime: 120
+            });
+            this.attackTimer++;
+            if (this.attackTimer > 8) {
+              this.state = 'idle';
+              this.stateTimer = 70;
+              this.attackTimer = 0;
+            }
+          }
+        } else {
+          // Scorpion summon
+          if (this.attackTimer === 0) {
+            this.state = 'warn';
+            this.stateTimer = 30;
+            this.attackTimer = 1;
+          } else if (this.attackTimer === 1) {
+            goombas.push({
+              x: this.x + (Math.random() > 0.5 ? BOSS_WIDTH : -50),
+              y: 360 - GOOMBA_HEIGHT,
+              vx: (Math.random() > 0.5 ? 1 : -1) * 2,
+              width: GOOMBA_WIDTH,
+              height: GOOMBA_HEIGHT,
+              patrolLeft: Math.max(0, this.x - 200),
+              patrolRight: Math.min(WORLD_WIDTH, this.x + 200),
+              animFrame: 0,
+              platformIndex: -1,
+              isMinion: true
+            });
+            this.state = 'idle';
+            this.stateTimer = 90;
+            this.attackTimer = 0;
+          }
+        }
+      }
+    };
+
+    // =====================================================
     // 3. INPUT MANAGER
     // =====================================================
     const Input = {
       keys: {
-        left: false,
-        right: false,
-        jump: false,
-        confirm: false,   // Enter key for menu confirmation
-        pause: false,     // P key for pause
-        escape: false,    // ESC key for menu
-        restart: false,   // R key for restart
-        settings: false   // O key for settings
+        left: false, right: false, jump: false,
+        confirm: false, pause: false, escape: false,
+        restart: false, settings: false
       },
-      justPressed: {},     // Keys that were just pressed (keydown since last clear)
+      justPressed: {},
 
       init() {
         window.addEventListener('keydown', (e) => this.onKeyDown(e));
@@ -546,14 +1051,10 @@
 
       onKeyDown(e) {
         const keyMap = {
-          'ArrowLeft': 'left',
-          'ArrowRight': 'right',
-          'Space': 'jump',
-          'ArrowUp': 'jump',
-          'Enter': 'confirm',
-          'KeyP': 'pause',
-          'Escape': 'escape',
-          'KeyR': 'restart',
+          'ArrowLeft': 'left', 'ArrowRight': 'right',
+          'Space': 'jump', 'ArrowUp': 'jump',
+          'Enter': 'confirm', 'KeyP': 'pause',
+          'Escape': 'escape', 'KeyR': 'restart',
           'KeyO': 'settings'
         };
         const key = keyMap[e.code];
@@ -566,50 +1067,27 @@
 
       onKeyUp(e) {
         const keyMap = {
-          'ArrowLeft': 'left',
-          'ArrowRight': 'right',
-          'Space': 'jump',
-          'ArrowUp': 'jump',
-          'Enter': 'confirm',
-          'KeyP': 'pause',
-          'Escape': 'escape',
-          'KeyR': 'restart',
+          'ArrowLeft': 'left', 'ArrowRight': 'right',
+          'Space': 'jump', 'ArrowUp': 'jump',
+          'Enter': 'confirm', 'KeyP': 'pause',
+          'Escape': 'escape', 'KeyR': 'restart',
           'KeyO': 'settings'
         };
         const key = keyMap[e.code];
-        if (key) {
-          this.keys[key] = false;
-        }
+        if (key) this.keys[key] = false;
       },
 
-      isPressed(key) {
-        return this.keys[key] === true;
-      },
-
-      wasJustPressed(key) {
-        return this.justPressed[key] === true;
-      },
-
-      clearJustPressed() {
-        this.justPressed = {};
-      }
+      isPressed(key) { return this.keys[key] === true; },
+      wasJustPressed(key) { return this.justPressed[key] === true; },
+      clearJustPressed() { this.justPressed = {}; }
     };
 
     // =====================================================
-    // 3.1 MENU MANAGER (NEU — Phase 5: World Selection Menu)
+    // 3.1 MENU MANAGER with Level Gating
     // =====================================================
-
-    /**
-     * MenuManager handles the World Selection Screen.
-     * Displays 3 world cards, navigable with arrow keys, confirmable with Enter.
-     */
     const MenuManager = {
       selectedIndex: 0,
-      CONFIRM_DEBOUNCE: false,  // Prevent repeated confirm on held Enter
 
-      /**
-       * Draw the world selection menu screen
-       */
       draw(ctx) {
         const cardW = 160;
         const cardH = 140;
@@ -628,12 +1106,7 @@
         ctx.textAlign = 'center';
         ctx.fillText('WELT AUSWAHLEN', CANVAS_WIDTH / 2, 60);
 
-        // Settings button hint
-        ctx.fillStyle = '#aaa';
-        ctx.font = '12px Courier New';
-        ctx.fillText('O = Einstellungen | ESC = Zurück', CANVAS_WIDTH / 2, 370);
-
-        // Subtitle
+        // Hint
         ctx.fillStyle = '#aaa';
         ctx.font = '14px Courier New';
         ctx.fillText('Pfeiltasten navigieren | Enter bestatigen', CANVAS_WIDTH / 2, 90);
@@ -643,56 +1116,78 @@
           const wc = getWorldConfig(i);
           const cx = startX + i * (cardW + gap);
           const selected = (i === this.selectedIndex);
+          const unlocked = LevelGating.isUnlocked(i);
 
           // Card background
-          ctx.fillStyle = selected ? '#ffd700' : wc.colors.sky;
+          if (!unlocked) {
+            ctx.fillStyle = '#333';
+          } else {
+            ctx.fillStyle = selected ? '#ffd700' : wc.colors.sky;
+          }
           ctx.fillRect(cx, startY, cardW, cardH);
 
           // Card border
-          ctx.strokeStyle = selected ? '#fff' : '#555';
+          ctx.strokeStyle = selected ? '#fff' : (unlocked ? '#555' : '#666');
           ctx.lineWidth = selected ? 4 : 2;
           ctx.strokeRect(cx, startY, cardW, cardH);
 
-          // World name
-          ctx.fillStyle = selected ? '#000' : '#fff';
-          ctx.font = 'bold 18px Courier New';
-          ctx.textAlign = 'center';
-          ctx.fillText(wc.name, cx + cardW / 2, startY + 30);
+          if (!unlocked) {
+            // Locked overlay
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(cx, startY, cardW, cardH);
 
-          // Mini preview: draw a small platform sample
-          const previewY = startY + 55;
-          ctx.fillStyle = wc.colors.platform;
-          ctx.fillRect(cx + 20, previewY, cardW - 40, 10);
-          ctx.fillStyle = wc.colors.platformHighlight;
-          ctx.fillRect(cx + 20, previewY, cardW - 40, 3);
+            // Lock icon
+            ctx.fillStyle = '#e94560';
+            ctx.font = 'bold 36px Courier New';
+            ctx.fillText('🔒', cx + cardW / 2, startY + cardH / 2 + 5);
 
-          // Mini preview: draw a small banana
-          ctx.fillStyle = '#FFD700';
-          ctx.fillRect(cx + cardW / 2 - 4, previewY - 16, 8, 12);
+            // Lock message
+            ctx.fillStyle = '#aaa';
+            ctx.font = '10px Courier New';
+            ctx.fillText(LevelGating.getLockMessage(i), cx + cardW / 2, startY + cardH - 10);
+          } else {
+            // World name
+            ctx.fillStyle = selected ? '#000' : '#fff';
+            ctx.font = 'bold 18px Courier New';
+            ctx.fillText(wc.name, cx + cardW / 2, startY + 30);
 
-          // Mini preview: draw enemy dot
-          ctx.fillStyle = wc.colors.accent;
-          ctx.fillRect(cx + cardW / 2 - 3, previewY + 20, 6, 6);
+            // Mini preview
+            const previewY = startY + 55;
+            ctx.fillStyle = wc.colors.platform;
+            ctx.fillRect(cx + 20, previewY, cardW - 40, 10);
+            ctx.fillStyle = wc.colors.platformHighlight;
+            ctx.fillRect(cx + 20, previewY, cardW - 40, 3);
 
-          // World ID badge
-          ctx.fillStyle = selected ? '#000' : wc.colors.accent;
-          ctx.font = '12px Courier New';
-          ctx.fillText(`Welt ${wc.id}`, cx + cardW / 2, startY + cardH - 15);
+            // Mini banana
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(cx + cardW / 2 - 4, previewY - 16, 8, 12);
 
-          // Selection arrow indicator
-          if (selected) {
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 24px Courier New';
-            ctx.fillText('▼', cx + cardW / 2, startY - 10);
+            // Enemy dot
+            ctx.fillStyle = wc.colors.accent;
+            ctx.fillRect(cx + cardW / 2 - 3, previewY + 20, 6, 6);
+
+            // World ID
+            ctx.fillStyle = selected ? '#000' : wc.colors.accent;
+            ctx.font = '12px Courier New';
+            ctx.fillText(`Welt ${wc.id}`, cx + cardW / 2, startY + cardH - 15);
+
+            // Selection arrow
+            if (selected) {
+              ctx.fillStyle = '#fff';
+              ctx.font = 'bold 24px Courier New';
+              ctx.fillText('▼', cx + cardW / 2, startY - 10);
+            }
           }
         }
 
-        ctx.textAlign = 'left'; // Reset
+        // Settings hint
+        ctx.fillStyle = '#aaa';
+        ctx.font = '12px Courier New';
+        ctx.fillText('O = Einstellungen', CANVAS_WIDTH / 2, 370);
+
+        ctx.textAlign = 'left';
       },
 
-      /**
-       * Handle menu input (only active when GameState.state === 'menu')
-       */
       handleInput() {
         if (Input.wasJustPressed('left')) {
           if (this.selectedIndex > 0) this.selectedIndex--;
@@ -703,1162 +1198,442 @@
         if (Input.wasJustPressed('confirm')) {
           this.confirm();
         }
+        if (Input.wasJustPressed('settings')) {
+          showSettings();
+          GameState.state = 'settings';
+        }
       },
 
-      /**
-       * Confirm the selected world and start the game
-       */
       confirm() {
-        GameState.currentWorld = this.selectedIndex;
+        const selected = this.selectedIndex;
+        if (!LevelGating.isUnlocked(selected)) {
+          // Show lock message briefly
+          return;
+        }
+        GameState.currentWorld = selected;
         GameState.state = 'play';
         reset();
       }
     };
 
     // =====================================================
-    // 4. ENTITY FACTORY FUNCTIONS
+    // 4. DRAWING FUNCTIONS
     // =====================================================
 
-    function createPlatforms() {
-      return PLATFORMS.map(p => ({
-        x: p.x,
-        y: p.y,
-        width: p.width,
-        height: PLATFORM_HEIGHT
-      }));
-    }
-
-    function createBananas() {
-      return BANANA_POSITIONS.map(b => ({
-        x: b.x,
-        y: b.y,
-        width: BANANA_WIDTH,
-        height: BANANA_HEIGHT,
-        collected: false
-      }));
-    }
-
-    function createGoombas() {
-      return GOOMBA_CONFIGS.map(g => ({
-        x: g.x,
-        y: g.y,
-        vx: g.speed,
-        width: GOOMBA_WIDTH,
-        height: GOOMBA_HEIGHT,
-        patrolLeft: g.patrolLeft,
-        patrolRight: g.patrolRight,
-        animFrame: 0,
-        platformIndex: g.platformIndex
-      }));
-    }
-
-    // =====================================================
-    // 4.1 DRAWING FUNCTIONS
-    // =====================================================
-
-    // =====================================================
-    // 2.1 ENHANCED DK PIXEL-ART (NEU — Phase 2: Enhanced DK)
-    // =====================================================
-
-    /**
-     * Enhanced DK Pixel-Art with necklace, animations, and world-specific colors.
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {Object} p - Player entity
-     * @param {number} camX - Camera X offset
-     */
     function drawPlayer(ctx, p, camX) {
-      // Invulnerability blink effect
-      if (p.invulnerable > 0) {
-        p.animTimer++;
-        if (p.animTimer % 8 < 4) {
-          p.visible = false;
-        } else {
-          p.visible = true;
-        }
-        if (p.animTimer >= INVULNERABILITY_FRAMES) {
-          p.invulnerable = 0;
-          p.visible = true;
-        }
-      }
-
-      if (!p.visible) return;
-
-      const drawX = p.x - camX;
-      const drawY = p.y;
-
-      // Mirror for left-facing direction
-      if (p.facing === 'left') {
-        ctx.save();
-        ctx.translate(drawX + p.width / 2, drawY);
-        ctx.scale(-1, 1);
-        ctx.translate(-(drawX + p.width / 2), -drawY);
-      }
-
-      // Color palette (uses world colors if available, falls back to jungle defaults)
-      const wc = getWorldConfig(GameState.currentWorld).colors;
-      const B = '#8B4513';       // Brown (body)
-      const D = '#5C3317';       // Dark brown (legs, details)
-      const F = '#DEB887';       // Face skin color
-      const R = '#cc0000';       // Red (shoes, necklace)
-      const W = '#ffffff';       // White (DK letters)
-      const K = '#000';          // Black (eyes, pupils)
-
-      // Determine animation state
-      const isJumping = !p.onGround;
-      const isWalking = p.vx !== 0;
-      const walkCycle = isWalking ? (Math.floor(p.animFrame) % 4) : 0;
-      const idleCycle = !isWalking && !isJumping ? (Math.floor(Date.now() / 600) % 2) : 0;
-
-      // --- HEAD (large brown ape head) ---
-      // Head base
-      ctx.fillStyle = B;
-      ctx.fillRect(drawX + 4, drawY, 24, 16);
-
-      // Head top (hair/rounding)
-      ctx.fillRect(drawX + 6, drawY - 2, 20, 4);
-
-      // Ears
-      ctx.fillStyle = D;
-      ctx.fillRect(drawX + 2, drawY + 4, 4, 6);   // Left ear
-      ctx.fillRect(drawX + 26, drawY + 4, 4, 6);   // Right ear
-
-      // Face (light skin area)
-      ctx.fillStyle = F;
-      ctx.fillRect(drawX + 8, drawY + 4, 16, 10);
-
+      if (p.invulnerable > 0 && Math.floor(p.invulnerable / 4) % 2 === 0) return;
+      const sx = p.x - camX;
+      const sy = p.y;
+      // Body
+      ctx.fillStyle = '#e94560';
+      ctx.fillRect(sx + 4, sy + 8, 24, 16);
+      // Head
+      ctx.fillStyle = '#ffd700';
+      ctx.fillRect(sx + 8, sy, 16, 12);
       // Eyes
-      ctx.fillStyle = W;
-      const eyeOff = p.facing === 'right' ? 2 : -2;
-      ctx.fillRect(drawX + 12 + eyeOff, drawY + 6, 4, 4);  // Left eye
-      ctx.fillRect(drawX + 18 + eyeOff, drawY + 6, 4, 4);  // Right eye
-
-      // Pupils
-      ctx.fillStyle = K;
-      const pupilOff = p.facing === 'right' ? 3 : 1;
-      ctx.fillRect(drawX + 13 + pupilOff, drawY + 7, 2, 3);  // Left pupil
-      ctx.fillRect(drawX + 19 + pupilOff, drawY + 7, 2, 3);  // Right pupil
-
-      // Nose
-      ctx.fillStyle = D;
-      ctx.fillRect(drawX + 15, drawY + 10, 4, 2);
-
-      // Mouth
-      ctx.fillStyle = K;
-      ctx.fillRect(drawX + 13, drawY + 13, 8, 1);
-
-      // --- BODY (thick with broad shoulders) ---
-      ctx.fillStyle = B;
-      ctx.fillRect(drawX + 4, drawY + 16, 24, 10);
-
-      // Chest (lighter)
-      ctx.fillStyle = F;
-      ctx.fillRect(drawX + 10, drawY + 16, 12, 6);
-
-      // --- NECKLACE (red bandana with "DK" letters) ---
-      ctx.fillStyle = R;
-      ctx.fillRect(drawX + 6, drawY + 14, 20, 4);
-
-      // "DK" letters on necklace
-      ctx.fillStyle = W;
-      // D
-      ctx.fillRect(drawX + 9, drawY + 15, 3, 2);
-      ctx.fillRect(drawX + 12, drawY + 15, 1, 2);
-      // K
-      ctx.fillRect(drawX + 14, drawY + 15, 1, 2);
-      ctx.fillRect(drawX + 15, drawY + 15, 2, 1);
-
-      // --- ARMS ---
-      ctx.fillStyle = B;
-      if (isJumping) {
-        // Jump: arms raised above head
-        ctx.fillRect(drawX, drawY + 6, 6, 10);   // Left arm up
-        ctx.fillRect(drawX + 26, drawY + 6, 6, 10); // Right arm up
-        // Hands
-        ctx.fillStyle = F;
-        ctx.fillRect(drawX, drawY + 4, 6, 4);
-        ctx.fillRect(drawX + 26, drawY + 4, 6, 4);
-      } else if (isWalking) {
-        // Walk: arms swinging
-        if (walkCycle < 2) {
-          ctx.fillRect(drawX, drawY + 14, 6, 10);  // Left arm forward
-          ctx.fillRect(drawX + 26, drawY + 18, 6, 8); // Right arm back
-        } else {
-          ctx.fillRect(drawX, drawY + 18, 6, 8);    // Left arm back
-          ctx.fillRect(drawX + 26, drawY + 14, 6, 10); // Right arm forward
-        }
-        // Hands
-        ctx.fillStyle = F;
-        if (walkCycle < 2) {
-          ctx.fillRect(drawX, drawY + 12, 6, 4);
-          ctx.fillRect(drawX + 26, drawY + 16, 6, 4);
-        } else {
-          ctx.fillRect(drawX, drawY + 16, 6, 4);
-          ctx.fillRect(drawX + 26, drawY + 12, 6, 4);
-        }
+      ctx.fillStyle = '#000';
+      if (p.facing === 'right') {
+        ctx.fillRect(sx + 18, sy + 4, 3, 3);
       } else {
-        // Idle: arms at sides with slight sway
-        const idleShift = idleCycle === 0 ? 0 : 2;
-        ctx.fillRect(drawX, drawY + 16 + idleShift, 6, 8);
-        ctx.fillRect(drawX + 26, drawY + 16 + (idleCycle === 0 ? 2 : 0), 6, 8);
-        // Hands
-        ctx.fillStyle = F;
-        ctx.fillRect(drawX, drawY + 14 + idleShift, 6, 4);
-        ctx.fillRect(drawX + 26, drawY + 14 + (idleCycle === 0 ? 2 : 0), 6, 4);
+        ctx.fillRect(sx + 11, sy + 4, 3, 3);
       }
-
-      // --- LEGS ---
-      ctx.fillStyle = D;
-      if (isJumping) {
-        // Jump: legs tucked up
-        ctx.fillRect(drawX + 6, drawY + 24, 7, 6);
-        ctx.fillRect(drawX + 19, drawY + 24, 7, 6);
-      } else if (isWalking) {
-        // Walk: alternating legs (4-frame cycle)
-        if (walkCycle === 0) {
-          ctx.fillRect(drawX + 6, drawY + 26, 7, 6);
-          ctx.fillRect(drawX + 19, drawY + 24, 7, 6);
-        } else if (walkCycle === 1) {
-          ctx.fillRect(drawX + 6, drawY + 24, 7, 6);
-          ctx.fillRect(drawX + 19, drawY + 26, 7, 6);
-        } else if (walkCycle === 2) {
-          ctx.fillRect(drawX + 6, drawY + 26, 7, 6);
-          ctx.fillRect(drawX + 19, drawY + 24, 7, 6);
-        } else {
-          ctx.fillRect(drawX + 6, drawY + 24, 7, 6);
-          ctx.fillRect(drawX + 19, drawY + 26, 7, 6);
-        }
-      } else {
-        // Idle: legs straight
-        ctx.fillRect(drawX + 6, drawY + 26, 7, 6);
-        ctx.fillRect(drawX + 19, drawY + 26, 7, 6);
-      }
-
-      // --- SHOES (red) ---
-      ctx.fillStyle = R;
-      if (isJumping) {
-        ctx.fillRect(drawX + 4, drawY + 28, 9, 2);
-        ctx.fillRect(drawX + 19, drawY + 28, 9, 2);
-      } else if (isWalking) {
-        if (walkCycle === 0) {
-          ctx.fillRect(drawX + 4, drawY + 30, 9, 2);
-          ctx.fillRect(drawX + 19, drawY + 28, 9, 2);
-        } else if (walkCycle === 1) {
-          ctx.fillRect(drawX + 4, drawY + 28, 9, 2);
-          ctx.fillRect(drawX + 19, drawY + 30, 9, 2);
-        } else if (walkCycle === 2) {
-          ctx.fillRect(drawX + 4, drawY + 30, 9, 2);
-          ctx.fillRect(drawX + 19, drawY + 28, 9, 2);
-        } else {
-          ctx.fillRect(drawX + 4, drawY + 28, 9, 2);
-          ctx.fillRect(drawX + 19, drawY + 30, 9, 2);
-        }
-      } else {
-        ctx.fillRect(drawX + 4, drawY + 30, 9, 2);
-        ctx.fillRect(drawX + 19, drawY + 30, 9, 2);
-      }
-
-      // Restore mirror transform
-      if (p.facing === 'left') {
-        ctx.restore();
-      }
-    }
-
-    // =====================================================
-    // 4.1 THEMATIC PLATFORMS (NEU — Phase 4: Thematic Platforms)
-    // =====================================================
-
-    /**
-     * Draws a platform with world-specific theme (wood, ice, stone)
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {Object} p - Platform entity
-     * @param {number} camX - Camera X offset
-     * @param {string} theme - Platform theme from WorldConfig
-     */
-    function drawPlatform(ctx, p, camX, theme) {
-      const drawX = p.x - camX;
-
-      switch (theme) {
-        case 'ice':
-          drawIcePlatform(ctx, drawX, p);
-          break;
-        case 'stone':
-          drawStonePlatform(ctx, drawX, p);
-          break;
-        case 'wood':
-        default:
-          drawWoodPlatform(ctx, drawX, p);
-          break;
-      }
-    }
-
-    /**
-     * Wood platform (jungle theme) — wooden beam with rivets
-     */
-    function drawWoodPlatform(ctx, x, p) {
+      // Legs
       ctx.fillStyle = '#8B6914';
-      ctx.fillRect(x, p.y, p.width, p.height);
+      const legOffset = Math.sin(p.animFrame * 0.3) * 4;
+      ctx.fillRect(sx + 6, sy + 24, 8, 8 + legOffset);
+      ctx.fillRect(sx + 18, sy + 24, 8, 8 - legOffset);
+    }
 
-      ctx.fillStyle = '#A0822A';
-      ctx.fillRect(x, p.y, p.width, 4);
-
-      ctx.fillStyle = '#6B5310';
-      ctx.fillRect(x, p.y + p.height - 3, p.width, 3);
-
-      ctx.fillStyle = '#5C4410';
-      for (let rx = x + 10; rx < x + p.width - 5; rx += 30) {
-        ctx.fillRect(rx, p.y + 6, 4, 4);
+    function drawBoss(ctx, b, camX) {
+      if (!b.active) return;
+      const sx = b.x - camX;
+      const sy = b.y;
+      // Hit flash
+      if (b.hitFlash > 0 && b.hitFlash % 2 === 0) {
+        ctx.fillStyle = '#fff';
+      } else {
+        // Boss body color based on type
+        switch (b.type) {
+          case 'concrete_crusher':
+            ctx.fillStyle = '#666';
+            break;
+          case 'frost_king':
+            ctx.fillStyle = '#74b9ff';
+            break;
+          case 'sand_worm':
+            ctx.fillStyle = '#fdcb6e';
+            break;
+          default:
+            ctx.fillStyle = '#e94560';
+        }
+      }
+      // Main body
+      ctx.fillRect(sx, sy, BOSS_WIDTH, BOSS_HEIGHT);
+      // Eyes
+      ctx.fillStyle = b.hitFlash > 0 ? '#ff0000' : '#fff';
+      if (b.facing === 'right') {
+        ctx.fillRect(sx + 40, sy + 16, 12, 8);
+        ctx.fillRect(sx + 56, sy + 16, 8, 8);
+      } else {
+        ctx.fillRect(sx + 6, sy + 16, 8, 8);
+        ctx.fillRect(sx + 22, sy + 16, 12, 8);
+      }
+      // Pupils
+      ctx.fillStyle = '#000';
+      if (b.facing === 'right') {
+        ctx.fillRect(sx + 46, sy + 18, 4, 4);
+        ctx.fillRect(sx + 58, sy + 18, 4, 4);
+      } else {
+        ctx.fillRect(sx + 8, sy + 18, 4, 4);
+        ctx.fillRect(sx + 28, sy + 18, 4, 4);
+      }
+      // Mouth
+      ctx.fillStyle = '#000';
+      ctx.fillRect(sx + 16, sy + 44, 32, 6);
+      // Warning indicator
+      if (b.state === 'warn') {
+        ctx.fillStyle = '#ff0000';
+        ctx.font = 'bold 28px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('!', sx + BOSS_WIDTH / 2, sy - 10);
+        ctx.textAlign = 'left';
+      }
+      // Dying effect
+      if (b.state === 'dying') {
+        ctx.fillStyle = `rgba(255, 255, 255, ${b.stateTimer / 60})`;
+        ctx.fillRect(sx, sy, BOSS_WIDTH, BOSS_HEIGHT);
       }
     }
 
-    /**
-     * Ice platform (snow theme) — translucent ice with cracks
-     */
-    function drawIcePlatform(ctx, x, p) {
-      // Ice base (light blue)
-      ctx.fillStyle = '#a4d8f0';
-      ctx.fillRect(x, p.y, p.width, p.height);
-
-      // Ice highlight (white)
-      ctx.fillStyle = '#d4eff8';
-      ctx.fillRect(x, p.y, p.width, 4);
-
-      // Ice shadow (darker blue)
-      ctx.fillStyle = '#7bb8d0';
-      ctx.fillRect(x, p.y + p.height - 3, p.width, 3);
-
-      // Ice cracks
-      ctx.fillStyle = '#8ac4e0';
-      for (let cx = x + 15; cx < x + p.width - 10; cx += 40) {
-        ctx.fillRect(cx, p.y + 5, 1, p.height - 8);
-        ctx.fillRect(cx + 8, p.y + 3, 1, p.height - 6);
-      }
-
-      // Frost sparkle
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(x + 5, p.y + 2, 3, 2);
-      ctx.fillRect(x + 25, p.y + 8, 2, 2);
-    }
-
-    /**
-     * Stone platform (desert theme) — rough stone with cracks
-     */
-    function drawStonePlatform(ctx, x, p) {
-      // Stone base
-      ctx.fillStyle = '#b8860b';
-      ctx.fillRect(x, p.y, p.width, p.height);
-
-      // Stone highlight
-      ctx.fillStyle = '#daa520';
-      ctx.fillRect(x, p.y, p.width, 4);
-
-      // Stone shadow
-      ctx.fillStyle = '#8b6914';
-      ctx.fillRect(x, p.y + p.height - 3, p.width, 3);
-
-      // Stone texture (rough blocks)
-      ctx.fillStyle = '#a0780a';
-      for (let bx = x + 8; bx < x + p.width - 15; bx += 25) {
-        ctx.fillRect(bx, p.y + 5, 12, 3);
-        ctx.fillRect(bx + 5, p.y + 10, 8, 2);
-      }
-
-      // Stone cracks
-      ctx.fillStyle = '#6b5310';
-      for (let cx = x + 20; cx < x + p.width - 10; cx += 50) {
-        ctx.fillRect(cx, p.y + 4, 1, p.height - 6);
+    function drawBossProjectile(ctx, proj, camX) {
+      const sx = proj.x - camX;
+      switch (proj.type) {
+        case 'fireball':
+          ctx.fillStyle = '#ff6600';
+          ctx.fillRect(sx, proj.y, proj.width, proj.height);
+          ctx.fillStyle = '#ffcc00';
+          ctx.fillRect(sx + 2, proj.y + 2, proj.width - 4, proj.height - 4);
+          break;
+        case 'ice_wedge':
+          ctx.fillStyle = '#74b9ff';
+          ctx.fillRect(sx, proj.y, proj.width, proj.height);
+          ctx.fillStyle = '#dfe6e9';
+          ctx.fillRect(sx + 2, proj.y + 2, proj.width - 4, proj.height - 4);
+          break;
+        case 'frost_wave':
+          ctx.fillStyle = 'rgba(116, 185, 255, 0.6)';
+          ctx.fillRect(sx, proj.y, proj.width, proj.height);
+          break;
+        case 'sand_ball':
+          ctx.fillStyle = '#fdcb6e';
+          ctx.fillRect(sx, proj.y, proj.width, proj.height);
+          break;
+        case 'sand_spin':
+          ctx.fillStyle = '#e17055';
+          ctx.fillRect(sx, proj.y, proj.width, proj.height);
+          break;
       }
     }
 
     function drawBanana(ctx, b, camX) {
-      if (b.collected) return;
-
-      const drawX = b.x - camX;
-      const drawY = b.y;
-
-      // Banana shape (yellow crescent)
       ctx.fillStyle = '#FFD700';
-      ctx.fillRect(drawX + 3, drawY, 10, 14);
-      ctx.fillRect(drawX + 1, drawY + 2, 14, 10);
-      ctx.fillRect(drawX + 5, drawY + 12, 6, 4);
-
-      // Banana tip (brown)
-      ctx.fillStyle = '#8B6914';
-      ctx.fillRect(drawX + 6, drawY, 4, 3);
-
-      // Highlight
-      ctx.fillStyle = '#FFEC8B';
-      ctx.fillRect(drawX + 5, drawY + 3, 4, 6);
+      ctx.fillRect(b.x - camX, b.y, BANANA_WIDTH, BANANA_HEIGHT);
+      ctx.fillStyle = '#DAA520';
+      ctx.fillRect(b.x - camX + 2, b.y + 2, BANANA_WIDTH - 4, BANANA_HEIGHT - 4);
     }
 
-    // =====================================================
-    // 3.1 THEMATIC ENEMIES (NEU — Phase 3: Thematic Enemies)
-    // =====================================================
-
-    /**
-     * Draws an enemy based on the current world's enemyTheme.
-     * Supports: barrel, penguin, scorpion
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {Object} g - Goomba/enemy entity
-     * @param {number} camX - Camera X offset
-     * @param {string} theme - Enemy theme from WorldConfig
-     */
-    function drawEnemy(ctx, g, camX, theme) {
-      const drawX = g.x - camX;
-      const drawY = g.y;
-      const walkCycle = Math.floor(g.animFrame) % 2;
-
-      switch (theme) {
-        case 'barrel':
-          drawBarrel(ctx, drawX, drawY, g, walkCycle);
-          break;
-        case 'penguin':
-          drawPenguin(ctx, drawX, drawY, g, walkCycle);
-          break;
-        case 'scorpion':
-          drawScorpion(ctx, drawX, drawY, g, walkCycle);
-          break;
-        default:
-          drawBarrel(ctx, drawX, drawY, g, walkCycle);
-      }
-    }
-
-    /**
-     * Barrel enemy (jungle theme) — rolling wooden barrel with metal bands
-     */
-    function drawBarrel(ctx, x, y, g, cycle) {
-      // Barrel body (brown wood)
-      ctx.fillStyle = '#8B6914';
-      ctx.fillRect(x + 2, y + 2, 20, 20);
-
-      // Barrel top curve
-      ctx.fillStyle = '#A0822A';
-      ctx.fillRect(x + 4, y, 16, 4);
-
-      // Barrel bottom curve
-      ctx.fillStyle = '#6B5310';
-      ctx.fillRect(x + 4, y + 22, 16, 2);
-
-      // Metal bands (silver)
-      ctx.fillStyle = '#888';
-      ctx.fillRect(x + 2, y + 6, 20, 2);
-      ctx.fillRect(x + 2, y + 16, 20, 2);
-
-      // Wood grain lines
-      ctx.fillStyle = '#6B5310';
-      ctx.fillRect(x + 6, y + 9, 4, 1);
-      ctx.fillRect(x + 14, y + 9, 4, 1);
-      ctx.fillRect(x + 8, y + 19, 6, 1);
-
-      // Rolling animation: rotation indicator
-      if (cycle === 0) {
-        ctx.fillStyle = '#A0822A';
-        ctx.fillRect(x + 4, y + 10, 3, 3);
-      } else {
-        ctx.fillStyle = '#A0822A';
-        ctx.fillRect(x + 17, y + 10, 3, 3);
-      }
-
-      // Eyes on barrel
-      ctx.fillStyle = '#000';
-      const eyeOff = g.vx > 0 ? 2 : 0;
-      ctx.fillRect(x + 8 + eyeOff, y + 10, 3, 3);
-      ctx.fillRect(x + 15 + eyeOff, y + 10, 3, 3);
-    }
-
-    /**
-     * Penguin enemy (snow theme) — waddling penguin with flippers
-     */
-    function drawPenguin(ctx, x, y, g, cycle) {
-      // Body (black)
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(x + 4, y + 6, 16, 14);
-
-      // Belly (white)
+    function drawGoomba(ctx, g, camX) {
+      const sx = g.x - camX;
+      // Body
+      ctx.fillStyle = g.isMinion ? '#e17055' : '#8B6914';
+      ctx.fillRect(sx, g.y, GOOMBA_WIDTH, GOOMBA_HEIGHT);
+      // Eyes
       ctx.fillStyle = '#fff';
-      ctx.fillRect(x + 8, y + 10, 8, 8);
-
-      // Head (black)
-      ctx.fillRect(x + 6, y, 12, 10);
-
-      // Eyes (white)
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(x + 8, y + 3, 3, 3);
-      ctx.fillRect(x + 14, y + 3, 3, 3);
-
-      // Pupils
+      ctx.fillRect(sx + 4, g.y + 6, 6, 6);
+      ctx.fillRect(sx + 14, g.y + 6, 6, 6);
       ctx.fillStyle = '#000';
-      const eyeOff = g.vx > 0 ? 1 : 0;
-      ctx.fillRect(x + 9 + eyeOff, y + 4, 2, 2);
-      ctx.fillRect(x + 15 + eyeOff, y + 4, 2, 2);
-
-      // Beak (orange)
-      ctx.fillStyle = '#FF8C00';
-      ctx.fillRect(x + 10, y + 7, 4, 2);
-
-      // Flippers (black) — waddle animation
-      ctx.fillStyle = '#1a1a2e';
-      if (cycle === 0) {
-        ctx.fillRect(x, y + 10, 5, 8);   // Left flipper out
-        ctx.fillRect(x + 19, y + 10, 5, 8); // Right flipper out
-      } else {
-        ctx.fillRect(x + 2, y + 8, 4, 6);  // Left flipper in
-        ctx.fillRect(x + 18, y + 8, 4, 6); // Right flipper in
-      }
-
-      // Feet (orange)
-      ctx.fillStyle = '#FF8C00';
-      ctx.fillRect(x + 6, y + 20, 5, 2);
-      ctx.fillRect(x + 14, y + 20, 5, 2);
+      ctx.fillRect(sx + 6, g.y + 8, 3, 3);
+      ctx.fillRect(sx + 16, g.y + 8, 3, 3);
     }
 
-    /**
-     * Scorpion enemy (desert theme) — crawling scorpion with tail
-     */
-    function drawScorpion(ctx, x, y, g, cycle) {
-      // Body (dark orange/brown)
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(x + 4, y + 10, 16, 8);
-
-      // Head
-      ctx.fillStyle = '#654321';
-      ctx.fillRect(x + 16, y + 8, 8, 8);
-
-      // Eyes (red)
-      ctx.fillStyle = '#cc0000';
-      const eyeOff = g.vx > 0 ? 2 : 0;
-      ctx.fillRect(x + 18 + eyeOff, y + 10, 2, 2);
-      ctx.fillRect(x + 22 + eyeOff, y + 10, 2, 2);
-
-      // Pincers
-      ctx.fillStyle = '#8B4513';
-      ctx.fillRect(x + 24, y + 8, 2, 4);
-      ctx.fillRect(x + 24, y + 12, 2, 4);
-
-      // Tail (curved up) — animated
-      ctx.fillStyle = '#654321';
-      if (cycle === 0) {
-        ctx.fillRect(x, y + 8, 6, 4);
-        ctx.fillRect(x, y + 4, 4, 4);
-        // Stinger
-        ctx.fillStyle = '#cc0000';
-        ctx.fillRect(x, y + 2, 2, 2);
-      } else {
-        ctx.fillRect(x, y + 6, 6, 4);
-        ctx.fillRect(x, y + 2, 4, 4);
-        // Stinger
-        ctx.fillStyle = '#cc0000';
-        ctx.fillRect(x, y, 2, 2);
-      }
-
-      // Legs (6 legs) — crawl animation
-      ctx.fillStyle = '#8B4513';
-      if (cycle === 0) {
-        ctx.fillRect(x + 6, y + 18, 2, 4);
-        ctx.fillRect(x + 10, y + 18, 2, 4);
-        ctx.fillRect(x + 14, y + 18, 2, 4);
-        ctx.fillRect(x + 8, y + 18, 2, 4);
-        ctx.fillRect(x + 12, y + 18, 2, 4);
-        ctx.fillRect(x + 16, y + 18, 2, 4);
-      } else {
-        ctx.fillRect(x + 7, y + 18, 2, 4);
-        ctx.fillRect(x + 11, y + 18, 2, 4);
-        ctx.fillRect(x + 15, y + 18, 2, 4);
-        ctx.fillRect(x + 9, y + 18, 2, 4);
-        ctx.fillRect(x + 13, y + 18, 2, 4);
-        ctx.fillRect(x + 17, y + 18, 2, 4);
-      }
+    function drawPlatform(ctx, p, camX) {
+      const wc = getWorldConfig(GameState.currentWorld);
+      ctx.fillStyle = wc.colors.platform;
+      ctx.fillRect(p.x - camX, p.y, p.width, PLATFORM_HEIGHT);
+      ctx.fillStyle = wc.colors.platformHighlight;
+      ctx.fillRect(p.x - camX, p.y, p.width, 3);
+      ctx.fillStyle = wc.colors.platformShadow;
+      ctx.fillRect(p.x - camX, p.y + PLATFORM_HEIGHT - 3, p.width, 3);
     }
 
-    // =====================================================
-    // 4.2 BACKGROUND RENDERER & PARTICLES (NEU — Phase 4: Parallax + Partikel)
-    // =====================================================
-
-    /**
-     * Thematic background with parallax layers and particles.
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {number} camX - Camera X offset
-     */
     function drawBackground(ctx, camX) {
-      const wc = getWorldConfig(GameState.currentWorld).colors;
-      const bg = getWorldConfig(GameState.currentWorld).background;
-
-      // Parallax layer 1 (far — slow)
-      const off1 = camX * 0.2;
-      if (bg.clouds) drawClouds(ctx, off1, wc);
-      if (bg.mountains) drawMountains(ctx, off1, wc);
-      if (bg.dunes) drawDunes(ctx, off1, wc);
-      if (bg.pyramids) drawPyramids(ctx, off1, wc);
-
-      // Parallax layer 2 (mid — medium)
-      const off2 = camX * 0.5;
-      if (bg.trees) drawTrees(ctx, off2, wc);
-      if (bg.vines) drawVines(ctx, off2, wc);
-
-      // Particles
-      drawParticles(ctx, camX, wc, bg.particles);
-    }
-
-    /**
-     * Draw clouds (parallax far layer)
-     */
-    function drawClouds(ctx, off1, wc) {
-      ctx.fillStyle = 'rgba(255,255,255,0.15)';
-      for (let i = 0; i < 5; i++) {
-        const cx = ((i * 350 + 100) - off1) % (CANVAS_WIDTH + 200) - 100;
-        const cy = 30 + i * 25;
-        ctx.fillRect(cx, cy, 80, 16);
-        ctx.fillRect(cx + 15, cy - 8, 50, 12);
+      const wc = getWorldConfig(GameState.currentWorld);
+      // Sky gradient
+      const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+      grad.addColorStop(0, wc.colors.sky);
+      grad.addColorStop(1, wc.colors.skyGradient);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      // Parallax background elements
+      const parallax = camX * 0.3;
+      ctx.fillStyle = wc.colors.background;
+      for (let i = 0; i < 8; i++) {
+        const bx = (i * 250 - parallax) % (CANVAS_WIDTH + 250);
+        ctx.fillRect(bx, 50 + i * 30, 80, 150);
       }
-    }
-
-    /**
-     * Draw jungle trees (parallax mid layer)
-     */
-    function drawTrees(ctx, off2, wc) {
-      for (let i = 0; i < 6; i++) {
-        const tx = ((i * 280 + 50) - off2) % (CANVAS_WIDTH + 200) - 100;
-        // Trunk
-        ctx.fillStyle = '#3d2b1f';
-        ctx.fillRect(tx + 10, 150, 8, 250);
-        // Canopy
-        ctx.fillStyle = '#2d5a3f';
-        ctx.fillRect(tx - 10, 100, 48, 60);
-        ctx.fillRect(tx, 80, 28, 30);
-      }
-    }
-
-    /**
-     * Draw hanging vines (parallax mid layer)
-     */
-    function drawVines(ctx, off2, wc) {
-      ctx.fillStyle = '#1a472a';
-      for (let i = 0; i < 4; i++) {
-        const vx = ((i * 400 + 200) - off2 * 0.8) % (CANVAS_WIDTH + 200) - 100;
-        const vineLen = 40 + (i % 3) * 20;
-        ctx.fillRect(vx, 0, 3, vineLen);
-        // Leaf at bottom
-        ctx.fillRect(vx - 3, vineLen - 6, 9, 6);
-      }
-    }
-
-    /**
-     * Draw snow mountains (parallax far layer)
-     */
-    function drawMountains(ctx, off1, wc) {
-      ctx.fillStyle = '#5a7a9a';
-      for (let i = 0; i < 4; i++) {
-        const mx = ((i * 400 + 150) - off1) % (CANVAS_WIDTH + 300) - 150;
-        // Mountain triangle
-        ctx.fillRect(mx, 180, 120, 220);
-        ctx.fillRect(mx + 20, 140, 80, 60);
-        ctx.fillRect(mx + 40, 110, 40, 40);
-        // Snow cap
-        ctx.fillStyle = '#d4eff8';
-        ctx.fillRect(mx + 45, 100, 30, 16);
-        ctx.fillStyle = '#5a7a9a';
-      }
-    }
-
-    /**
-     * Draw desert dunes (parallax far layer)
-     */
-    function drawDunes(ctx, off1, wc) {
-      ctx.fillStyle = '#c4944a';
-      for (let i = 0; i < 5; i++) {
-        const dx = ((i * 300 + 80) - off1) % (CANVAS_WIDTH + 200) - 100;
-        ctx.fillRect(dx, 250, 160, 150);
-        ctx.fillRect(dx + 20, 220, 120, 40);
-        ctx.fillRect(dx + 50, 200, 60, 30);
-      }
-    }
-
-    /**
-     * Draw pyramid silhouettes (parallax far layer)
-     */
-    function drawPyramids(ctx, off1, wc) {
-      ctx.fillStyle = '#8b6914';
-      for (let i = 0; i < 2; i++) {
-        const px = ((i * 500 + 300) - off1 * 0.8) % (CANVAS_WIDTH + 300) - 150;
-        // Pyramid
-        ctx.fillRect(px, 200, 100, 200);
-        ctx.fillRect(px + 15, 170, 70, 50);
-        ctx.fillRect(px + 35, 150, 30, 30);
-      }
-    }
-
-    /**
-     * Particle system for atmospheric effects
-     * Particles: leaves, snow, sand
-     */
-    const Particles = {
-      list: [],
-      MAX: 30,
-
-      init(type) {
-        this.list = [];
-        for (let i = 0; i < this.MAX; i++) {
-          this.list.push(this.create(type, i));
-        }
-      },
-
-      create(type, i) {
-        return {
-          x: Math.random() * CANVAS_WIDTH,
-          y: Math.random() * CANVAS_HEIGHT,
-          speed: 0.3 + Math.random() * 0.8,
-          size: 2 + Math.floor(Math.random() * 3),
-          drift: (Math.random() - 0.5) * 0.5,
-          type: type
-        };
-      },
-
-      update() {
-        for (const p of this.list) {
-          p.y += p.speed;
-          p.x += p.drift;
-          if (p.y > CANVAS_HEIGHT + 10) {
-            p.y = -10;
-            p.x = Math.random() * CANVAS_WIDTH;
-          }
-          if (p.x > CANVAS_WIDTH + 10) p.x = -10;
-          if (p.x < -10) p.x = CANVAS_WIDTH + 10;
-        }
-      },
-
-      draw(ctx, wc) {
-        for (const p of this.list) {
-          switch (p.type) {
-            case 'leaves':
-              ctx.fillStyle = '#4CAF50';
-              ctx.fillRect(p.x, p.y, p.size, p.size);
-              break;
-            case 'snow':
-              ctx.fillStyle = 'rgba(255,255,255,0.8)';
-              ctx.fillRect(p.x, p.y, p.size, p.size);
-              break;
-            case 'sand':
-              ctx.fillStyle = '#fdcb6e';
-              ctx.fillRect(p.x, p.y, p.size, 1);
-              break;
-          }
+      // Clouds
+      if (wc.background.clouds) {
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        for (let i = 0; i < 5; i++) {
+          const cx = (i * 300 - camX * 0.1) % (CANVAS_WIDTH + 300);
+          ctx.fillRect(cx, 30 + i * 20, 60, 20);
         }
       }
-    };
-
-    /**
-     * Draw particles based on world type
-     */
-    function drawParticles(ctx, camX, wc, type) {
-      if (Particles.list.length === 0 || Particles.list[0].type !== type) {
-        Particles.init(type);
-      }
-      Particles.update();
-      Particles.draw(ctx, wc);
     }
 
     // =====================================================
-    // 5. PHYSICS ENGINE
+    // 5. PHYSICS & COLLISION
     // =====================================================
 
     function applyGravity(entity) {
       entity.vy += GRAVITY;
-      if (entity.vy > MAX_FALL) {
-        entity.vy = MAX_FALL;
-      }
+      if (entity.vy > MAX_FALL) entity.vy = MAX_FALL;
     }
 
-    function applyJump(entity) {
-      if (entity.onGround) {
-        entity.vy = JUMP_FORCE;
-        entity.onGround = false;
-      }
+    function rectCollision(a, b) {
+      return a.x < b.x + b.width &&
+             a.x + a.width > b.x &&
+             a.y < b.y + b.height &&
+             a.y + a.height > b.y;
     }
 
-    function checkTopCollision(entity, plats) {
-      for (const p of plats) {
-        // Horizontal overlap check
-        if (
-          entity.x + entity.width > p.x &&
-          entity.x < p.x + p.width
-        ) {
-          // One-Way Platform: only collide from above when falling
-          // Condition: player bottom was at or above platform top in previous frame
-          // entity.y + entity.height - entity.vy <= p.y means player was above before this frame
-          // Also require vy >= 0 (falling) and current bottom is near platform top
-          if (
-            entity.vy >= 0 &&
-            entity.y + entity.height >= p.y &&
-            (entity.y + entity.height - entity.vy) <= p.y + 4
-          ) {
-            entity.y = p.y - entity.height;
-            entity.vy = 0;
-            entity.onGround = true;
-            return true;
-          }
+    function updatePlayer() {
+      // Horizontal movement
+      if (Input.isPressed('left')) {
+        Player.vx = -Player.speed;
+        Player.facing = 'left';
+      } else if (Input.isPressed('right')) {
+        Player.vx = Player.speed;
+        Player.facing = 'right';
+      } else {
+        Player.vx = 0;
+      }
+      // Jump
+      if (Input.wasJustPressed('jump') && Player.onGround) {
+        Player.vy = Player.jumpForce;
+        Player.onGround = false;
+      }
+      // Apply gravity
+      applyGravity(Player);
+      // Move X
+      Player.x += Player.vx;
+      // Clamp X
+      if (Player.x < 0) Player.x = 0;
+      if (Player.x > WORLD_WIDTH - Player.width) Player.x = WORLD_WIDTH - Player.width;
+      // Move Y
+      Player.y += Player.vy;
+      // Platform collision
+      Player.onGround = false;
+      for (const plat of platforms) {
+        if (Player.vy >= 0 &&
+            Player.x + Player.width > plat.x &&
+            Player.x < plat.x + plat.width &&
+            Player.y + Player.height >= plat.y &&
+            Player.y + Player.height <= plat.y + PLATFORM_HEIGHT + Player.vy + 2) {
+          Player.y = plat.y - Player.height;
+          Player.vy = 0;
+          Player.onGround = true;
         }
       }
-      return false;
+      // Fall off screen
+      if (Player.y > CANVAS_HEIGHT + 50) {
+        loseLife();
+      }
+      // Invulnerability timer
+      if (Player.invulnerable > 0) Player.invulnerable--;
+      // Animation
+      if (Math.abs(Player.vx) > 0) Player.animFrame += 0.3;
     }
 
-    function checkSideCollision(entity, plats) {
-      for (const p of plats) {
-        // Check if entity is within the vertical range of the platform
-        if (
-          entity.y + entity.height > p.y + 4 &&
-          entity.y < p.y + p.height
-        ) {
-          // Collision from the right side of the platform
-          if (
-            entity.x <= p.x + p.width &&
-            entity.x + entity.width > p.x + p.width &&
-            entity.vx > 0
-          ) {
-            entity.x = p.x + p.width;
-            entity.vx = 0;
-            return true;
-          }
-          // Collision from the left side of the platform
-          if (
-            entity.x + entity.width >= p.x &&
-            entity.x < p.x &&
-            entity.vx < 0
-          ) {
-            entity.x = p.x - entity.width;
-            entity.vx = 0;
-            return true;
-          }
+    function updateGoombas() {
+      for (const g of goombas) {
+        g.x += g.vx;
+        g.animFrame += 0.1;
+        // Patrol
+        if (g.x <= g.patrolLeft || g.x + g.width >= g.patrolRight) {
+          g.vx *= -1;
         }
       }
-      return false;
     }
 
-    // AABB collision between two entities
-    function entitiesCollide(a, b) {
-      return (
-        a.x + a.width > b.x &&
-        a.x < b.x + b.width &&
-        a.y + a.height > b.y &&
-        a.y < b.y + b.height
-      );
-    }
-
-    // =====================================================
-    // 6. CAMERA MANAGER
-    // =====================================================
-
-    function cameraFollow(target) {
-      // Player screen position (where the player appears on screen)
-      // Used for dead zone logic — calculated before camera adjustment
-      let playerScreenX = target.x - Camera.x;
-
-      // Dead zone boundaries within the viewport
-      const leftBoundary  = CAMERA_DEAD_ZONE;
-      const rightBoundary = CANVAS_WIDTH - CAMERA_DEAD_ZONE;
-
-      // Only move the camera when the player is outside the dead zone
-      if (playerScreenX > rightBoundary) {
-        // Player near right edge — shift camera right so player is at the dead zone boundary
-        const targetX = target.x - rightBoundary;
-        Camera.x += (targetX - Camera.x) * CAMERA_LERP;
-      } else if (playerScreenX < leftBoundary) {
-        // Player near left edge — shift camera left so player is at the dead zone boundary
-        const targetX = target.x - leftBoundary;
-        Camera.x += (targetX - Camera.x) * CAMERA_LERP;
+    function updateBossProjectiles() {
+      for (let i = bossProjectiles.length - 1; i >= 0; i--) {
+        const p = bossProjectiles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.lifetime--;
+        if (p.lifetime <= 0) {
+          bossProjectiles.splice(i, 1);
+        }
       }
-      // Otherwise: player is inside the dead zone, camera stays still
+    }
 
-      // Clamp to world bounds
-      Camera.x = Math.max(0, Math.min(Camera.x, WORLD_WIDTH - CANVAS_WIDTH));
+    // =====================================================
+    // 5.1 DAMAGE & COLLISION
+    // =====================================================
 
-      // SCRUM-204 fix: Recalculate playerScreenX after clamping.
-      // The previous value was stale — after clamping, Camera.x may have changed,
-      // so the old playerScreenX no longer reflects the actual on-screen position.
-      // Using the stale value caused incorrect corrections that pushed the player off-screen.
-      playerScreenX = target.x - Camera.x;
-
-      // CRITICAL: Ensure player never leaves the visible screen area (SCRUM-204 fix)
-      // If camera is too far right, pull it back so player stays on screen
-      if (playerScreenX > CANVAS_WIDTH - target.width) {
-        Camera.x = target.x - (CANVAS_WIDTH - target.width);
+    function damagePlayer() {
+      if (Player.invulnerable > 0) return;
+      GameState.lives--;
+      Player.invulnerable = INVULNERABILITY_FRAMES;
+      Player.vy = JUMP_FORCE;
+      updateHUD();
+      if (GameState.lives <= 0) {
+        showGameOver();
       }
-      // If camera is too far left, push it right so player stays on screen
-      if (playerScreenX < 0) {
-        Camera.x = target.x;
-      }
-
-      // Y stays at 0 (no vertical scrolling needed for this game)
-      Camera.y = 0;
     }
 
-    function applyCamera(ctx) {
-      ctx.translate(-Camera.x, -Camera.y);
-    }
-
-    // =====================================================
-    // 7. HUD MANAGER
-    // =====================================================
-
-    function updateHUD() {
-      document.getElementById('score').textContent = `Score: ${GameState.score}`;
-      document.getElementById('lives').textContent = '❤'.repeat(Math.max(0, GameState.lives));
-      const wc = getWorldConfig(GameState.currentWorld);
-      document.getElementById('world-level').textContent = `Welt ${wc.id} - Level 1`;
-    }
-
-    // =====================================================
-    // 8. GAME OVER MANAGER
-    // =====================================================
-
-    function showGameOver() {
-      // Save highscore
-      const worldName = getWorldConfig(GameState.currentWorld).name;
-      HighscoreManager.addScore(GameState.score, worldName);
-
-      GameState.state = 'gameover';
-      document.getElementById('final-score').textContent = `Score: ${GameState.score} | Welt: ${worldName}`;
-      document.getElementById('game-over').classList.add('active');
-    }
-
-    /**
-     * Transition to the next level/world after collecting all bananas.
-     * If all worlds are completed, show the final victory screen.
-     */
-    function transitionToNextLevel() {
-      const nextWorld = GameState.currentWorld + 1;
-
-      // Check if there's a next world (0=jungle, 1=snow, 2=desert)
-      if (nextWorld < WORLD_KEYS.length) {
-        // Transition to next world
-        GameState.currentWorld = nextWorld;
-        GameState.bananasCollected = 0;
-
-        // Reset player and entities for the new world
-        resetPlayer();
-        initEntities();
-
-        // Hide any overlays
-        hideGameOver();
-        document.getElementById('game-over').querySelector('h1').textContent = 'GAME OVER';
-
-        // Update HUD to show new world
-        updateHUD();
-
-        // Set state back to play
-        GameState.state = 'play';
+    function loseLife() {
+      GameState.lives--;
+      updateHUD();
+      if (GameState.lives <= 0) {
+        showGameOver();
       } else {
-        // All worlds completed — show final victory screen
-        showFinalVictory();
+        respawnPlayer();
       }
     }
 
-    /**
-     * Show final victory screen when all worlds are completed
-     */
-    function showFinalVictory() {
-      // Save highscore (bonus: +10 for final victory)
-      const worldName = getWorldConfig(GameState.currentWorld).name;
-      HighscoreManager.addScore(GameState.score + 10, `${worldName} (Sieg!)`);
-
-      GameState.state = 'victory';
-      document.getElementById('final-score').textContent = `ALLE WELTEN ABGESCHLOSSEN! | Score: ${GameState.score}`;
-      document.getElementById('game-over').querySelector('h1').textContent = 'SIEG!';
-      document.getElementById('game-over').classList.add('active');
-    }
-
-    /**
-     * Show victory screen when all bananas are collected.
-     * Briefly shows a transition message, then moves to the next level.
-     */
-    function showVictory() {
-      const worldName = getWorldConfig(GameState.currentWorld).name;
-      const nextWorld = GameState.currentWorld + 1;
-
-      // Save highscore (bonus: +10 for level completion)
-      HighscoreManager.addScore(GameState.score + 10, `${worldName} (Sieg!)`);
-
-      if (nextWorld < WORLD_KEYS.length) {
-        // There's a next world — transition after a brief delay
-        const nextWorldName = getWorldConfig(nextWorld).name;
-
-        // Show transition message briefly
-        GameState.state = 'victory';
-        document.getElementById('final-score').textContent = `LEVEL ABGESCHLOSSEN! | Score: ${GameState.score} | Nächstes: Welt ${nextWorldName}`;
-        document.getElementById('game-over').querySelector('h1').textContent = 'LEVEL SIEG!';
-        document.getElementById('game-over').classList.add('active');
-
-        // Auto-transition after 2 seconds
-        setTimeout(() => {
-          if (GameState.state === 'victory') {
-            transitionToNextLevel();
-          }
-        }, 2000);
-      } else {
-        // All worlds completed — show final victory screen
-        showFinalVictory();
-      }
-    }
-
-    function hideGameOver() {
-      document.getElementById('game-over').classList.remove('active');
-    }
-
-    // =====================================================
-    // 9. GAME (MAIN)
-    // =====================================================
-
-    // =====================================================
-    // 9.1 WORLD-SPECIFIC ENTITY INIT (NEU — Phase 6: World Layout)
-    // =====================================================
-
-    /**
-     * Initialize entities from WorldConfig.layout for the current world.
-     * Replaces hardcoded PLATFORMS, BANANA_POSITIONS, GOOMBA_CONFIGS.
-     */
-    function initEntities() {
-      const layout = getWorldConfig(GameState.currentWorld).layout;
-
-      platforms = layout.platforms.map(p => ({
-        x: p.x,
-        y: p.y,
-        width: p.width,
-        height: PLATFORM_HEIGHT
-      }));
-
-      bananas = layout.bananas.map(b => ({
-        x: b.x,
-        y: b.y,
-        width: BANANA_WIDTH,
-        height: BANANA_HEIGHT,
-        collected: false
-      }));
-
-      goombas = layout.goombas.map(g => ({
-        x: g.x,
-        y: g.y,
-        vx: g.speed,
-        width: GOOMBA_WIDTH,
-        height: GOOMBA_HEIGHT,
-        patrolLeft: g.patrolLeft,
-        patrolRight: g.patrolRight,
-        animFrame: 0,
-        platformIndex: g.platformIndex
-      }));
-
-      GameState.bananasTotal = layout.bananas.length;
-    }
-
-    function resetPlayer() {
+    function respawnPlayer() {
       Player.x = Player.spawnX;
       Player.y = Player.spawnY;
       Player.vx = 0;
       Player.vy = 0;
-      Player.onGround = false;
-      Player.invulnerable = 0;
-      Player.visible = true;
-      Player.animTimer = 0;
-      Camera.x = 0;
+      Player.invulnerable = INVULNERABILITY_FRAMES;
     }
 
-    function reset(fromWorld) {
-      GameState.state = 'play';
-      GameState.score = 0;
-      GameState.lives = 3;
-      GameState.bananasCollected = 0;
-      // fromWorld: restart from world 0, keep currentWorld otherwise
-      if (fromWorld !== undefined) {
-        GameState.currentWorld = fromWorld;
+    function checkCollisions() {
+      // Player vs Bananas
+      for (let i = bananas.length - 1; i >= 0; i--) {
+        const b = bananas[i];
+        if (rectCollision(Player, b)) {
+          bananas.splice(i, 1);
+          GameState.bananasCollected++;
+          GameState.score += 100;
+          updateHUD();
+          // Check if all bananas collected -> start boss fight
+          if (GameState.bananasCollected >= GameState.bananasTotal && !Boss.active) {
+            startBossFight();
+          }
+        }
       }
+      // Player vs Goombas
+      for (let i = goombas.length - 1; i >= 0; i--) {
+        const g = goombas[i];
+        if (rectCollision(Player, g)) {
+          // Stomp from above
+          if (Player.vy > 0 && Player.y + Player.height - 8 < g.y + g.height / 2) {
+            goombas.splice(i, 1);
+            Player.vy = JUMP_FORCE * 0.6;
+            GameState.score += 200;
+            updateHUD();
+          } else if (Player.invulnerable <= 0) {
+            damagePlayer();
+          }
+        }
+      }
+      // Player vs Boss
+      if (Boss.active && Boss.state !== 'dying') {
+        if (rectCollision(Player, Boss)) {
+          // Stomp boss from above
+          if (Player.vy > 0 && Player.y + Player.height - 8 < Boss.y + Boss.height / 2) {
+            Boss.takeDamage();
+            Player.vy = JUMP_FORCE * 0.6;
+            GameState.score += 500;
+            updateHUD();
+          } else if (Player.invulnerable <= 0) {
+            damagePlayer();
+          }
+        }
+      }
+      // Player vs Boss Projectiles
+      if (Boss.active) {
+        for (let i = bossProjectiles.length - 1; i >= 0; i--) {
+          const p = bossProjectiles[i];
+          if (rectCollision(Player, p)) {
+            if (Player.invulnerable <= 0) {
+              damagePlayer();
+            }
+            bossProjectiles.splice(i, 1);
+          }
+        }
+      }
+    }
 
-      resetPlayer();
-      initEntities();
-      hideGameOver();
-      // Reset game over title
-      document.getElementById('game-over').querySelector('h1').textContent = 'GAME OVER';
+    // =====================================================
+    // 5.2 BOSS FIGHT
+    // =====================================================
+
+    function startBossFight() {
+      GameState.state = 'boss_fight';
+      Boss.init(GameState.currentWorld);
+      // Spawn player near boss
+      Player.spawnX = 200;
+      Player.spawnY = 328;
+      Player.x = 200;
+      Player.y = 328;
+      Player.vx = 0;
+      Player.vy = 0;
+    }
+
+    function showBossDefeated() {
+      const wc = getWorldConfig(GameState.currentWorld);
+      GameState.score += 1000;
       updateHUD();
+      if (GameState.currentWorld >= 2) {
+        // Final boss defeated
+        GameState.state = 'victory';
+        saveHighscore();
+      }
+      // After a brief moment, go to menu
+      setTimeout(() => {
+        GameState.state = 'menu';
+        MenuManager.selectedIndex = GameState.currentWorld;
+      }, 2000);
     }
 
     // =====================================================
-    // 9.4 HIGHSCORE MANAGER (NEU — SCRUM-201)
+    // 6. CAMERA
     // =====================================================
 
-    const HighscoreManager = {
-      STORAGE_KEY: 'dk_highscores',
-      MAX_ENTRIES: 10,
-
-      /**
-       * Load highscores from localStorage
-       */
-      load() {
-        try {
-          const data = localStorage.getItem(this.STORAGE_KEY);
-          return data ? JSON.parse(data) : [];
-        } catch (e) {
-          return [];
-        }
-      },
-
-      /**
-       * Save highscores to localStorage
-       */
-      save(scores) {
-        try {
-          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(scores));
-        } catch (e) {
-          // localStorage not available
-        }
-      },
-
-      /**
-       * Add a new score and keep top N
-       */
-      addScore(score, worldName) {
-        const scores = this.load();
-        scores.push({
-          score: score,
-          world: worldName,
-          date: new Date().toLocaleDateString('de-DE')
-        });
-        // Sort descending by score
-        scores.sort((a, b) => b.score - a.score);
-        // Keep only top N
-        const trimmed = scores.slice(0, this.MAX_ENTRIES);
-        this.save(trimmed);
-        return trimmed;
-      },
-
-      /**
-       * Render the highscore list in the settings overlay
-       */
-      render() {
-        const scores = this.load();
-        const container = document.getElementById('highscore-list');
-        if (!container) return;
-
-        if (scores.length === 0) {
-          container.innerHTML = '<div>Keine Einträge</div>';
-          return;
-        }
-
-        let html = '';
-        scores.forEach((entry, i) => {
-          html += `<div>`;
-          html += `<span class="rank">${i + 1}.</span>`;
-          html += `<span class="hs-world">${entry.world || '—'}</span>`;
-          html += ` — ${entry.date || ''}`;
-          html += `<span class="hs-score">${entry.score}</span>`;
-          html += `</div>`;
-        });
-        container.innerHTML = html;
-      }
-    };
+    function updateCamera() {
+      const targetX = Player.x - CANVAS_WIDTH / 2 + PLAYER_WIDTH / 2;
+      Camera.x += (targetX - Camera.x) * CAMERA_LERP;
+      if (Camera.x < 0) Camera.x = 0;
+      if (Camera.x > WORLD_WIDTH - CANVAS_WIDTH) Camera.x = WORLD_WIDTH - CANVAS_WIDTH;
+    }
 
     // =====================================================
-    // 9.4.1 SETTINGS OVERLAY
+    // 7. HUD & UI
     // =====================================================
+
+    function updateHUD() {
+      document.getElementById('score').textContent = `Score: ${GameState.score}`;
+      const wc = getWorldConfig(GameState.currentWorld);
+      document.getElementById('world-level').textContent = `Welt ${wc.id} — ${wc.name}`;
+      let hearts = '';
+      for (let i = 0; i < GameState.lives; i++) hearts += '❤';
+      document.getElementById('lives').textContent = hearts || '💀';
+    }
+
+    function showGameOver() {
+      GameState.state = 'gameover';
+      document.getElementById('final-score').textContent = `Score: ${GameState.score}`;
+      document.getElementById('game-over').classList.add('active');
+    }
 
     function showSettings() {
-      HighscoreManager.render();
       document.getElementById('settings-overlay').classList.add('active');
+      loadHighscores();
     }
 
     function hideSettings() {
@@ -1866,304 +1641,251 @@
     }
 
     // =====================================================
-    // 9.5 PAUSE OVERLAY RENDERER
+    // 7.1 HIGHSCORE
     // =====================================================
 
-    function drawPauseOverlay(ctx) {
-      // Dim background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    function loadHighscores() {
+      try {
+        const data = localStorage.getItem('dk_highscores');
+        const list = document.getElementById('highscore-list');
+        if (data) {
+          const scores = JSON.parse(data);
+          list.innerHTML = scores.length === 0
+            ? '<div>Keine Eintr&auml;ge</div>'
+            : scores.map((s, i) =>
+                `<div><span class="rank">${i + 1}.</span> ${s.world} <span class="hs-score">${s.score}</span></div>`
+              ).join('');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
 
-      // Pause text
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 48px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('PAUSE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 40);
-
-      // Instructions
-      ctx.font = '18px monospace';
-      ctx.fillText('P = Fortsetzen', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
-      ctx.fillText('ESC = Hauptmenü', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 55);
-      ctx.fillText('O = Einstellungen', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 90);
-      ctx.textAlign = 'left';
+    function saveHighscore() {
+      try {
+        let scores = [];
+        const data = localStorage.getItem('dk_highscores');
+        if (data) scores = JSON.parse(data);
+        const wc = getWorldConfig(GameState.currentWorld);
+        scores.push({ score: GameState.score, world: `Welt ${wc.id} (${wc.name})` });
+        scores.sort((a, b) => b.score - a.score);
+        scores = scores.slice(0, 10);
+        localStorage.setItem('dk_highscores', JSON.stringify(scores));
+      } catch (e) {
+        // ignore
+      }
     }
 
     // =====================================================
-    // 9.6 RETURN TO MENU
+    // 8. LEVEL INIT
     // =====================================================
 
-    function returnToMenu() {
-      GameState.state = 'menu';
-      GameState.currentWorld = 0;
-      MenuManager.selectedIndex = 0;
-      Camera.x = 0;
-      hideGameOver();
-      hideSettings();
-    }
-
-    function update() {
-      if (GameState.state === 'menu') {
-        MenuManager.handleInput();
-        return;
-      }
-
-      // Victory: handle Enter key — transition to next level or restart
-      if (GameState.state === 'victory') {
-        if (Input.wasJustPressed('confirm')) {
-          const nextWorld = GameState.currentWorld + 1;
-          if (nextWorld < WORLD_KEYS.length) {
-            // Transition to next level
-            transitionToNextLevel();
-          } else {
-            // All worlds done — restart
-            reset();
-          }
-        }
-        if (Input.wasJustPressed('restart')) {
-          reset();
-        }
-        return;
-      }
-
-      // Game Over: handle R key for restart
-      if (GameState.state === 'gameover') {
-        if (Input.wasJustPressed('restart')) {
-          reset();
-        }
-        return;
-      }
-
-      // Pause toggle
-      if (GameState.state === 'paused') {
-        if (Input.wasJustPressed('pause')) {
-          GameState.state = 'play';
-        }
-        if (Input.wasJustPressed('escape')) {
-          returnToMenu();
-        }
-        if (Input.wasJustPressed('settings')) {
-          showSettings();
-          GameState.state = 'settings';
-        }
-        return;
-      }
-
-      // Settings: ESC or Back button to go back to previous state
-      if (GameState.state === 'settings') {
-        if (Input.wasJustPressed('escape')) {
-          hideSettings();
-          GameState.state = 'play';
-        }
-        return;
-      }
-
-      // Pause toggle (P key)
-      if (Input.wasJustPressed('pause')) {
-        GameState.state = 'paused';
-        return;
-      }
-
-      // O to open settings during gameplay
-      if (Input.wasJustPressed('settings')) {
-        showSettings();
-        GameState.state = 'settings';
-        return;
-      }
-
-      // ESC to return to menu
-      if (Input.wasJustPressed('escape')) {
-        returnToMenu();
-        return;
-      }
-
-      // --- Player Input ---
+    function reset() {
+      const wc = getWorldConfig(GameState.currentWorld);
+      // Player
+      Player.x = 50;
+      Player.y = 328;
       Player.vx = 0;
-      if (Input.isPressed('left')) {
-        Player.vx = -Player.speed;
-        Player.facing = 'left';
-      }
-      if (Input.isPressed('right')) {
-        Player.vx = Player.speed;
-        Player.facing = 'right';
-      }
-
-      // Jump — single press only
-      if (Input.wasJustPressed('jump')) {
-        Player.vy = Player.jumpForce;
-        Player.onGround = false;
-      }
-
-      // --- Player Physics ---
-      applyGravity(Player);
+      Player.vy = 0;
       Player.onGround = false;
-
-      // Move X
-      Player.x += Player.vx;
-      checkSideCollision(Player, platforms);
-
-      // Move Y
-      Player.y += Player.vy;
-      checkTopCollision(Player, platforms);
-
-      // Clamp to world bounds
-      Player.x = Math.max(0, Math.min(Player.x, WORLD_WIDTH - Player.width));
-
-      // Fall off the world
-      if (Player.y > WORLD_HEIGHT) {
-        GameState.lives--;
-        updateHUD();
-        if (GameState.lives <= 0) {
-          showGameOver();
-        } else {
-          resetPlayer();
-        }
-      }
-
-      // Walk animation (faster cycle for visibility)
-      if (Player.vx !== 0) {
-        Player.animTimer++;
-        if (Player.animTimer % 6 === 0) {
-          Player.animFrame++;
-        }
-      } else {
-        Player.animFrame = 0;
-        Player.animTimer = 0;
-      }
-
-      // --- Banana Collection ---
-      // Use expanded hitbox for easier banana collection
-      const bananaPadding = 8;
-      const playerExpanded = {
-        x: Player.x - bananaPadding,
-        y: Player.y - bananaPadding,
-        width: Player.width + bananaPadding * 2,
-        height: Player.height + bananaPadding * 2
-      };
-      for (const b of bananas) {
-        if (!b.collected && entitiesCollide(playerExpanded, b)) {
-          b.collected = true;
-          GameState.score++;
-          GameState.bananasCollected++;
-          updateHUD();
-        }
-      }
-
-      // --- Victory Check (all bananas collected) ---
-      if (GameState.bananasCollected >= GameState.bananasTotal) {
-        showVictory();
-      }
-
-      // --- Goomba Update ---
-      for (const g of goombas) {
-        // Patrol movement
-        g.x += g.vx;
-        if (g.x <= g.patrolLeft || g.x + g.width >= g.patrolRight) {
-          g.vx = -g.vx;
-        }
-
-        // Walk animation
-        g.animFrame += 0.05;
-
-        // Collision with player
-        if (Player.invulnerable <= 0 && entitiesCollide(Player, g)) {
-          GameState.lives--;
-          updateHUD();
-          if (GameState.lives <= 0) {
-            showGameOver();
-          } else {
-            resetPlayer();
-          }
-        }
-      }
-
-      // --- Camera ---
-      cameraFollow(Player);
-    }
-
-    function render(ctx) {
-      // Clear canvas with dark background (always visible at edges)
-      ctx.fillStyle = '#0f0f23';
-      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-      if (GameState.state === 'menu') {
-        // Draw the menu
-        MenuManager.draw(ctx);
-        return;
-      }
-
-      // Draw thematic background (sky gradient fills entire canvas)
-      drawBackground(ctx, Camera.x);
-
-      // Apply camera
-      ctx.save();
-      applyCamera(ctx);
-
-      // Draw platforms (thematic)
-      const platformTheme = getWorldConfig(GameState.currentWorld).platformTheme;
-      for (const p of platforms) {
-        drawPlatform(ctx, p, Camera.x, platformTheme);
-      }
-
-      // Draw bananas
-      for (const b of bananas) {
-        drawBanana(ctx, b, Camera.x);
-      }
-
-      // Draw enemies (thematic)
-      const enemyTheme = getWorldConfig(GameState.currentWorld).enemyTheme;
-      for (const g of goombas) {
-        drawEnemy(ctx, g, Camera.x, enemyTheme);
-      }
-
-      // Draw player
-      drawPlayer(ctx, Player, Camera.x);
-
-      ctx.restore();
-
-      // Draw pause overlay on top
-      if (GameState.state === 'paused') {
-        drawPauseOverlay(ctx);
-      }
-    }
-
-    let canvas = null;
-
-    function gameLoop(timestamp) {
-      update();
-      Input.clearJustPressed();
-      const ctx = canvas.getContext('2d');
-      render(ctx);
-      requestAnimationFrame(gameLoop);
-    }
-
-    function init() {
-      canvas = document.getElementById('game');
-      canvas.focus();
-      Input.init();
-      GameState.state = 'menu';
-      GameState.currentWorld = 0;
-      initEntities();
-      resetPlayer();
+      Player.facing = 'right';
+      Player.animFrame = 0;
+      Player.invulnerable = 60;
+      Player.spawnX = 50;
+      Player.spawnY = 328;
+      // Game state
+      GameState.bananasCollected = 0;
+      GameState.bossDefeated = false;
+      // Entities
+      platforms = wc.layout.platforms.map(p => ({ ...p, height: PLATFORM_HEIGHT }));
+      bananas = wc.layout.bananas.map(b => ({
+        ...b,
+        width: BANANA_WIDTH,
+        height: BANANA_HEIGHT
+      }));
+      GameState.bananasTotal = bananas.length;
+      goombas = wc.layout.goombas.map(g => ({
+        ...g,
+        vx: g.speed,
+        width: GOOMBA_WIDTH,
+        height: GOOMBA_HEIGHT,
+        animFrame: 0,
+        isMinion: false
+      }));
+      bossProjectiles = [];
+      Boss.deactivate();
+      // Camera
+      Camera.x = 0;
       updateHUD();
-
-      // Restart handlers — always restart from world 0
-      document.getElementById('restart-btn').addEventListener('click', () => reset(0));
-      document.getElementById('gameover-restart-btn').addEventListener('click', () => reset(0));
-
-      // Settings back button
-      document.getElementById('settings-back').addEventListener('click', () => {
-        hideSettings();
-        GameState.state = 'menu';
-      });
-
-      // Start game loop
-      requestAnimationFrame(gameLoop);
     }
 
     // =====================================================
-    // 10. BOOTSTRAP
+    // 9. GAME LOOP
     // =====================================================
-    window.addEventListener('DOMContentLoaded', init);
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    function gameLoop() {
+      // Clear
+      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      // State machine
+      switch (GameState.state) {
+        case 'menu':
+          drawBackground(ctx, 0);
+          MenuManager.draw(ctx);
+          MenuManager.handleInput();
+          break;
+        case 'play':
+        case 'boss_fight':
+          // Update
+          updatePlayer();
+          updateGoombas();
+          if (Boss.active) Boss.update();
+          updateBossProjectiles();
+          checkCollisions();
+          updateCamera();
+          // Draw
+          drawBackground(ctx, Camera.x);
+          for (const p of platforms) drawPlatform(ctx, p, Camera.x);
+          for (const b of bananas) drawBanana(ctx, b, Camera.x);
+          for (const g of goombas) drawGoomba(ctx, g, Camera.x);
+          drawPlayer(ctx, Player, Camera.x);
+          if (Boss.active) drawBoss(ctx, Boss, Camera.x);
+          for (const p of bossProjectiles) drawBossProjectile(ctx, p, Camera.x);
+          // Boss defeated overlay
+          if (GameState.bossDefeated) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 36px Courier New';
+            ctx.textAlign = 'center';
+            const wc = getWorldConfig(GameState.currentWorld);
+            if (GameState.currentWorld >= 2) {
+              ctx.fillText('SPIEL ABGESCHLOSSEN!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+            } else {
+              ctx.fillText(`LEVEL ${wc.id} ABGESCHLOSSEN!`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 20);
+            }
+            ctx.font = '18px Courier New';
+            ctx.fillText(`Score: ${GameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+            ctx.textAlign = 'left';
+          }
+          // Pause
+          if (Input.wasJustPressed('pause') || Input.wasJustPressed('escape')) {
+            GameState.state = 'paused';
+          }
+          if (Input.wasJustPressed('settings')) {
+            showSettings();
+            GameState.state = 'settings';
+          }
+          break;
+        case 'paused':
+          drawBackground(ctx, Camera.x);
+          for (const p of platforms) drawPlatform(ctx, p, Camera.x);
+          for (const b of bananas) drawBanana(ctx, b, Camera.x);
+          for (const g of goombas) drawGoomba(ctx, g, Camera.x);
+          drawPlayer(ctx, Player, Camera.x);
+          if (Boss.active) drawBoss(ctx, Boss, Camera.x);
+          // Pause overlay
+          ctx.fillStyle = 'rgba(0,0,0,0.6)';
+          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          ctx.fillStyle = '#ffd700';
+          ctx.font = 'bold 40px Courier New';
+          ctx.textAlign = 'center';
+          ctx.fillText('PAUSE', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+          ctx.font = '16px Courier New';
+          ctx.fillStyle = '#aaa';
+          ctx.fillText('P zum Fortsetzen', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 40);
+          ctx.textAlign = 'left';
+          if (Input.wasJustPressed('pause')) {
+            GameState.state = 'play';
+          }
+          break;
+        case 'gameover':
+          drawBackground(ctx, Camera.x);
+          for (const p of platforms) drawPlatform(ctx, p, Camera.x);
+          if (Input.wasJustPressed('restart')) {
+            hideGameOver();
+            fullReset();
+          }
+          break;
+        case 'settings':
+          drawBackground(ctx, Camera.x);
+          if (Input.wasJustPressed('escape')) {
+            hideSettings();
+            GameState.state = 'paused';
+          }
+          break;
+        case 'victory':
+          drawBackground(ctx, Camera.x);
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+          ctx.fillStyle = '#ffd700';
+          ctx.font = 'bold 40px Courier New';
+          ctx.textAlign = 'center';
+          ctx.fillText('SPIEL ABGESCHLOSSEN!', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 - 30);
+          ctx.font = '20px Courier New';
+          ctx.fillText(`Final Score: ${GameState.score}`, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 20);
+          ctx.font = '14px Courier New';
+          ctx.fillStyle = '#aaa';
+          ctx.fillText('ESC zum Menu', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2 + 60);
+          ctx.textAlign = 'left';
+          if (Input.wasJustPressed('escape')) {
+            GameState.state = 'menu';
+          }
+          break;
+      }
+      Input.clearJustPressed();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function hideGameOver() {
+      document.getElementById('game-over').classList.remove('active');
+    }
+
+    function fullReset() {
+      GameState.score = 0;
+      GameState.lives = 3;
+      GameState.currentWorld = 0;
+      GameState.bananasCollected = 0;
+      GameState.bossDefeated = false;
+      Boss.deactivate();
+      GameState.state = 'menu';
+      MenuManager.selectedIndex = 0;
+    }
+
+    // =====================================================
+    // 10. EVENT LISTENERS & INIT
+    // =====================================================
+
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      if (GameState.state === 'gameover') {
+        hideGameOver();
+        fullReset();
+      } else {
+        reset();
+      }
+    });
+
+    document.getElementById('gameover-restart-btn').addEventListener('click', () => {
+      hideGameOver();
+      fullReset();
+    });
+
+    document.getElementById('settings-back').addEventListener('click', () => {
+      hideSettings();
+      GameState.state = 'paused';
+    });
+
+    document.getElementById('reset-progress-btn').addEventListener('click', () => {
+      LevelGating.reset();
+      alert('Fortschritt wurde zurueckgesetzt!');
+    });
+
+    // Start
+    Input.init();
+    GameState.state = 'menu';
+    gameLoop();
   </script>
 </body>
 </html>
