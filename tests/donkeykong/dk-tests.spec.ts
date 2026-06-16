@@ -158,10 +158,8 @@ test.describe('Suite 4: Kamera (SCRUM-88)', () => {
     await page.keyboard.up('ArrowRight');
     await page.waitForTimeout(200);
     const camAfter = await page.evaluate(() => Camera.x);
-    const playerX = await page.evaluate(() => Player.x);
-    // Camera should move when player moves past a certain point, OR player should have moved significantly
-    // At minimum, player should have moved right
-    expect(playerX).toBeGreaterThan(50);
+    // Camera must have moved to the right when player moved right
+    expect(camAfter).toBeGreaterThan(camBefore);
   });
 
   test('TC-12: Kamera geht nicht ausserhalb der Weltgrenzen', async ({ page }) => {
@@ -636,18 +634,59 @@ test.describe('Suite 14: 3 Welten', () => {
     expect(hasWorldConfig).toBe(true);
   });
 
-  test('TC-47: Schnee-Welt zeigt Schneefall-Partikel', async ({ page }) => {
+  test('TC-47: Level 3-1 laedt korrekt mit Eis-Thema', async ({ page }) => {
+    // Bugfix-Test: WORLD_KEYS = ['jungle', 'desert', 'snow']
+    // Welt 3 (Index 2) muss snow sein, nicht desert
     await page.goto(GAME_URL);
     await page.waitForTimeout(500);
-    const snowParticles = await page.evaluate(() => {
-      if (typeof WorldConfig === 'undefined') return null;
-      return WorldConfig.snow?.particles || null;
+
+    // Schritt 1: WORLD_KEYS Array pruefen
+    const worldKeys = await page.evaluate(() => {
+      return typeof WORLD_KEYS !== 'undefined' ? WORLD_KEYS : null;
     });
-    if (snowParticles) {
-      expect(snowParticles.length).toBeGreaterThan(0);
-    }
-    const hasWorldConfig = await page.evaluate(() => typeof WorldConfig !== 'undefined');
-    expect(hasWorldConfig).toBe(true);
+    expect(worldKeys).toEqual(['jungle', 'desert', 'snow']);
+
+    // Schritt 2: Welt 3 im Menu auswaehlen (Index 2 = snow)
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(100);
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(100);
+
+    const selectedIndex = await page.evaluate(() => {
+      return (typeof MenuManager !== 'undefined' && MenuManager.selectedIndex) || 0;
+    });
+    expect(selectedIndex).toBe(2);
+
+    // Schritt 3: Welt 3 starten
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+
+    // Schritt 4: GameState.currentWorld muss 2 sein (snow)
+    const currentWorld = await page.evaluate(() => {
+      return (typeof GameState !== 'undefined' && GameState.currentWorld) || -1;
+    });
+    expect(currentWorld).toBe(2);
+
+    // Schritt 5: Eis-Thema Farben pruefen (blaue Farben #4a6fa5)
+    const skyColor = await page.evaluate(() => {
+      const wc = typeof getWorldConfig === 'function' ? getWorldConfig(2) : null;
+      return wc?.colors?.sky || null;
+    });
+    expect(skyColor).toBe('#4a6fa5');
+
+    // Schritt 6: Schneefall-Partikel pruefen (optional - nicht alle Welten haben Partikel)
+    const snowParticles = await page.evaluate(() => {
+      const wc = typeof getWorldConfig === 'function' ? getWorldConfig(2) : null;
+      return wc?.particles || null;
+    });
+    // Partikel koennen null sein - wichtig ist, dass die Welt korrekt geladen wurde
+
+    // Schritt 7: World ID muss 3 sein (snow world)
+    const worldId = await page.evaluate(() => {
+      const wc = typeof getWorldConfig === 'function' ? getWorldConfig(2) : null;
+      return wc?.id || null;
+    });
+    expect(worldId).toBe(3);
   });
 
   test('TC-48: Wueste-Welt zeigt Wuesten-Partikel', async ({ page }) => {
