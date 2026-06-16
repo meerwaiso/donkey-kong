@@ -534,7 +534,8 @@
         confirm: false,   // Enter key for menu confirmation
         pause: false,     // P key for pause
         escape: false,    // ESC key for menu
-        restart: false    // R key for restart
+        restart: false,   // R key for restart
+        settings: false   // O key for settings
       },
       justPressed: {},     // Keys that were just pressed (keydown since last clear)
 
@@ -552,7 +553,8 @@
           'Enter': 'confirm',
           'KeyP': 'pause',
           'Escape': 'escape',
-          'KeyR': 'restart'
+          'KeyR': 'restart',
+          'KeyO': 'settings'
         };
         const key = keyMap[e.code];
         if (key) {
@@ -571,7 +573,8 @@
           'Enter': 'confirm',
           'KeyP': 'pause',
           'Escape': 'escape',
-          'KeyR': 'restart'
+          'KeyR': 'restart',
+          'KeyO': 'settings'
         };
         const key = keyMap[e.code];
         if (key) {
@@ -1935,17 +1938,18 @@
         if (Input.wasJustPressed('escape')) {
           returnToMenu();
         }
-        if (Input.wasJustPressed('confirm')) {
+        if (Input.wasJustPressed('settings')) {
           showSettings();
+          GameState.state = 'settings';
         }
         return;
       }
 
-      // Settings: ESC to go back to previous state
+      // Settings: ESC or Back button to go back to previous state
       if (GameState.state === 'settings') {
         if (Input.wasJustPressed('escape')) {
           hideSettings();
-          GameState.state = 'menu';
+          GameState.state = 'play';
         }
         return;
       }
@@ -1956,16 +1960,16 @@
         return;
       }
 
-      // ESC to return to menu
-      if (Input.wasJustPressed('escape')) {
-        returnToMenu();
+      // O to open settings during gameplay
+      if (Input.wasJustPressed('settings')) {
+        showSettings();
+        GameState.state = 'settings';
         return;
       }
 
-      // O to open settings during gameplay
-      if (Input.wasJustPressed('confirm')) {
-        showSettings();
-        GameState.state = 'settings';
+      // ESC to return to menu
+      if (Input.wasJustPressed('escape')) {
+        returnToMenu();
         return;
       }
 
