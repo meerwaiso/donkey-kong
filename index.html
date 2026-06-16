@@ -379,30 +379,30 @@
         }
       },
 
-      snow: {
+      lava: {
         id: 2,
-        name: "Schnee",
+        name: "Lava",
         colors: {
-          sky: "#4a6fa5",
-          skyGradient: "#8ba4c7",
-          ground: "#c8d6e5",
-          platform: "#7f8fa6",
-          platformHighlight: "#a4b0be",
-          platformShadow: "#576574",
-          background: "#2c3e50",
-          particle: "#dfe6e9",
-          accent: "#74b9ff"
+          sky: "#8b0000",
+          skyGradient: "#cc3300",
+          ground: "#2d1b00",
+          platform: "#5a3a00",
+          platformHighlight: "#8b5a00",
+          platformShadow: "#3d2500",
+          background: "#1a0a00",
+          particle: "#ff6600",
+          accent: "#ff4400"
         },
         background: {
           trees: false,
           vines: false,
-          clouds: true,
-          mountains: true,
-          particles: "snow",
-          parallaxLayers: 3
+          clouds: false,
+          mountains: false,
+          particles: "lava",
+          parallaxLayers: 2
         },
         enemyTheme: "penguin",
-        platformTheme: "ice",
+        platformTheme: "lava",
         layout: {
           platforms: [
             { x: 0,     y: 360, width: 350 },
@@ -474,7 +474,7 @@
     };
 
     // World keys array for indexed access
-    const WORLD_KEYS = ['jungle', 'snow', 'desert'];
+    const WORLD_KEYS = ['jungle', 'lava', 'desert'];
 
     // Helper: Get world config by index (0=jungle, 1=snow, 2=desert)
     function getWorldConfig(worldIndex) {
@@ -978,6 +978,9 @@
         case 'ice':
           drawIcePlatform(ctx, drawX, p);
           break;
+        case 'lava':
+          drawLavaPlatform(ctx, drawX, p);
+          break;
         case 'stone':
           drawStonePlatform(ctx, drawX, p);
           break;
@@ -1064,6 +1067,35 @@
       for (let cx = x + 20; cx < x + p.width - 10; cx += 50) {
         ctx.fillRect(cx, p.y + 4, 1, p.height - 6);
       }
+    }
+
+    /**
+     * Lava platform (lava theme) — dark stone with lava cracks
+     */
+    function drawLavaPlatform(ctx, x, p) {
+      // Dark stone base
+      ctx.fillStyle = '#5a3a00';
+      ctx.fillRect(x, p.y, p.width, p.height);
+
+      // Lava glow highlight (orange)
+      ctx.fillStyle = '#8b5a00';
+      ctx.fillRect(x, p.y, p.width, 4);
+
+      // Dark shadow
+      ctx.fillStyle = '#3d2500';
+      ctx.fillRect(x, p.y + p.height - 3, p.width, 3);
+
+      // Lava cracks (glowing orange)
+      ctx.fillStyle = '#ff6600';
+      for (let cx = x + 15; cx < x + p.width - 10; cx += 40) {
+        ctx.fillRect(cx, p.y + 5, 2, p.height - 8);
+        ctx.fillRect(cx + 6, p.y + 4, 1, p.height - 6);
+      }
+
+      // Lava glow spots
+      ctx.fillStyle = '#ff4400';
+      ctx.fillRect(x + 10, p.y + 7, 4, 3);
+      ctx.fillRect(x + 35, p.y + 10, 3, 2);
     }
 
     function drawBanana(ctx, b, camX) {
@@ -1436,6 +1468,11 @@
             case 'sand':
               ctx.fillStyle = '#fdcb6e';
               ctx.fillRect(p.x, p.y, p.size, 1);
+              break;
+            case 'lava':
+              // Rising ember particles
+              ctx.fillStyle = `rgba(255, ${100 + Math.floor(Math.random() * 100)}, 0, ${0.5 + Math.random() * 0.5})`;
+              ctx.fillRect(p.x, p.y, p.size, p.size);
               break;
           }
         }

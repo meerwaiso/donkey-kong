@@ -606,16 +606,16 @@ test.describe('Suite 14: 3 Welten', () => {
     expect(hasWorldConfig).toBe(true);
   });
 
-  test('TC-45: Schnee-Welt mit blauer Farbpalette', async ({ page }) => {
+  test('TC-45: Lava-Welt mit roter Farbpalette', async ({ page }) => {
     await page.goto(GAME_URL);
     await page.waitForTimeout(500);
-    const snowColors = await page.evaluate(() => {
+    const lavaColors = await page.evaluate(() => {
       if (typeof WorldConfig === 'undefined') return null;
-      return WorldConfig.snow?.colors || null;
+      return WorldConfig.lava?.colors || null;
     });
-    if (snowColors) {
-      expect(snowColors.sky).toBe('#4a6fa5');
-      expect(snowColors.ground).toBe('#c8d6e5');
+    if (lavaColors) {
+      expect(lavaColors.sky).toBe('#8b0000');
+      expect(lavaColors.ground).toBe('#2d1b00');
     }
     const hasWorldConfig = await page.evaluate(() => typeof WorldConfig !== 'undefined');
     expect(hasWorldConfig).toBe(true);
@@ -636,15 +636,15 @@ test.describe('Suite 14: 3 Welten', () => {
     expect(hasWorldConfig).toBe(true);
   });
 
-  test('TC-47: Schnee-Welt zeigt Schneefall-Partikel', async ({ page }) => {
+  test('TC-47: Lava-Welt zeigt Lava-Partikel', async ({ page }) => {
     await page.goto(GAME_URL);
     await page.waitForTimeout(500);
-    const snowParticles = await page.evaluate(() => {
+    const lavaParticles = await page.evaluate(() => {
       if (typeof WorldConfig === 'undefined') return null;
-      return WorldConfig.snow?.particles || null;
+      return WorldConfig.lava?.background?.particles || null;
     });
-    if (snowParticles) {
-      expect(snowParticles.length).toBeGreaterThan(0);
+    if (lavaParticles) {
+      expect(lavaParticles).toBe('lava');
     }
     const hasWorldConfig = await page.evaluate(() => typeof WorldConfig !== 'undefined');
     expect(hasWorldConfig).toBe(true);
@@ -909,5 +909,184 @@ test.describe('Suite 18: Pause-Menu Erweiterungen', () => {
     });
     expect(typeof playerStats.speed).toBe('number');
     expect(typeof playerStats.jumpForce).toBe('number');
+  });
+});
+
+// =====================================================
+// Suite 19: Level-Transition (SCRUM-191)
+// =====================================================
+
+test.describe('Suite 19: Level-Transition (SCRUM-191)', () => {
+  test('TC-64: transitionToNextLevel-Funktion existiert', async ({ page }) => {
+    await page.goto(GAME_URL);
+    await page.waitForTimeout(500);
+    const hasTransition = await page.evaluate(() => {
+      return typeof transitionToNextLevel === 'function';
+    });
+    expect(hasTransition).toBe(true);
+  });
+
+  test('TC-65: showVictory-Funktion existiert', async ({ page }) => {
+    await page.goto(GAME_URL);
+    await page.waitForTimeout(500);
+    const hasShowVictory = await page.evaluate(() => {
+      return typeof showVictory === 'function';
+    });
+    expect(hasShowVictory).toBe(true);
+  });
+
+  test('TC-66: showFinalVictory-Funktion existiert', async ({ page }) => {
+    await page.goto(GAME_URL);
+    await page.waitForTimeout(500);
+    const hasShowFinalVictory = await page.evaluate(() => {
+      return typeof showFinalVictory === 'function';
+    });
+    expect(hasShowFinalVictory).toBe(true);
+  });
+
+  test('TC-67: Victory-Overlay zeigt LEVEL ABGESCHLOSSEN bei Level-Sieg', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    // Simulate collecting all bananas to trigger victory
+    await page.evaluate(() => {
+      GameState.bananasCollected = GameState.bananasTotal;
+      showVictory();
+    });
+    await page.waitForTimeout(500);
+    // Check overlay is visible
+    const overlayVisible = await page.evaluate(() => {
+      return document.getElementById('game-over')!.classList.contains('active');
+    });
+    expect(overlayVisible).toBe(true);
+    // Check victory message contains "LEVEL ABGESCHLOSSEN"
+    const finalScoreText = await page.textContent('#final-score');
+    expect(finalScoreText).toContain('LEVEL ABGESCHLOSSEN');
+  });
+
+  test('TC-68: GameState.currentWorld wird nach Level-Übergang inkrementiert', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    // Set current world to 0 (jungle) and trigger transition
+    await page.evaluate(() => {
+      GameState.currentWorld = 0;
+      GameState.bananasCollected = GameState.bananasTotal;
+    });
+    // Trigger transition directly
+    await page.evaluate(() => transitionToNextLevel());
+    await page.waitForTimeout(500);
+    const newWorld = await page.evaluate(() => GameState.currentWorld);
+    expect(newWorld).toBe(1); // Should transition to snow world (index 1)
+  });
+
+  test('TC-69: Nach Level-Übergang ist GameState.state "play"', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      GameState.currentWorld = 0;
+    });
+    await page.evaluate(() => transitionToNextLevel());
+    await page.waitForTimeout(500);
+    const state = await page.evaluate(() => GameState.state);
+    expect(state).toBe('play');
+  });
+
+  test('TC-70: bananasCollected wird nach Level-Übergang auf 0 zurueckgesetzt', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      GameState.currentWorld = 0;
+      GameState.bananasCollected = 5;
+    });
+    // Check that bananasCollected is reset to 0 by transitionToNextLevel
+    // Read the value synchronously inside the same evaluate call to avoid game loop interference
+    const collected = await page.evaluate(() => {
+      GameState.currentWorld = 0;
+      GameState.bananasCollected = 5;
+      transitionToNextLevel();
+      return GameState.bananasCollected;
+    });
+    expect(collected).toBe(0);
+  });
+
+  test('TC-71: Nach Welt 3 (index 2) wird showFinalVictory aufgerufen', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    // Set current world to 2 (desert = last world) and trigger transition
+    await page.evaluate(() => {
+      GameState.currentWorld = 2;
+    });
+    await page.evaluate(() => transitionToNextLevel());
+    await page.waitForTimeout(500);
+    // Should show final victory
+    const state = await page.evaluate(() => GameState.state);
+    const finalScoreText = await page.textContent('#final-score');
+    expect(state).toBe('victory');
+    expect(finalScoreText).toContain('ALLE WELTEN ABGESCHLOSSEN');
+  });
+
+  test('TC-72: Finaler Victory-Screen zeigt SIEG im Overlay', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      GameState.currentWorld = 2;
+    });
+    await page.evaluate(() => transitionToNextLevel());
+    await page.waitForTimeout(500);
+    const overlayTitle = await page.textContent('#game-over h1');
+    expect(overlayTitle).toBe('SIEG!');
+  });
+
+  test('TC-73: Enter-Taste loest Level-Übergang aus Victory-State aus', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    // Trigger victory state
+    await page.evaluate(() => {
+      GameState.currentWorld = 0;
+      GameState.bananasCollected = GameState.bananasTotal;
+      showVictory();
+    });
+    await page.waitForTimeout(500);
+    // Ensure canvas is focused
+    await page.evaluate(() => (document.getElementById('game') as HTMLCanvasElement).focus());
+    // Press Enter to trigger manual transition
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(1000);
+    const newWorld = await page.evaluate(() => GameState.currentWorld);
+    const state = await page.evaluate(() => GameState.state);
+    expect(newWorld).toBe(1);
+    expect(state).toBe('play');
+  });
+
+  test('TC-74: Auto-Transition nach 2 Sekunden von Victory-State', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    // Trigger victory state (which sets a 2-second timeout)
+    await page.evaluate(() => {
+      GameState.currentWorld = 0;
+      GameState.bananasCollected = GameState.bananasTotal;
+      showVictory();
+    });
+    await page.waitForTimeout(500);
+    const stateBefore = await page.evaluate(() => GameState.state);
+    expect(stateBefore).toBe('victory');
+    // Wait for the 2-second auto-transition
+    await page.waitForTimeout(2500);
+    const newWorld = await page.evaluate(() => GameState.currentWorld);
+    const stateAfter = await page.evaluate(() => GameState.state);
+    expect(newWorld).toBe(1);
+    expect(stateAfter).toBe('play');
+  });
+
+  test('TC-75: reset() setzt currentWorld auf 0 zurueck', async ({ page }) => {
+    await startGame(page);
+    await page.waitForTimeout(200);
+    // Set world to 2 and then reset
+    await page.evaluate(() => {
+      GameState.currentWorld = 2;
+    });
+    await page.evaluate(() => reset());
+    await page.waitForTimeout(500);
+    const world = await page.evaluate(() => GameState.currentWorld);
+    expect(world).toBe(0);
   });
 });
