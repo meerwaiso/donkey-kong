@@ -15,4 +15,4 @@ Thumbs.db
 
 # Build artifacts
 dist/
-build/
+build/tests/donkeykong/playwright-report/
