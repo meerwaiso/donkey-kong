@@ -1935,6 +1935,14 @@
     function update() {
       if (GameState.state === 'menu') {
         MenuManager.handleInput();
+        // Update goombas in menu mode so they move as a visual preview (SCRUM-183 fix)
+        for (const g of goombas) {
+          g.x += g.vx;
+          if (g.x <= g.patrolLeft || g.x + g.width >= g.patrolRight) {
+            g.vx = -g.vx;
+          }
+          g.animFrame += 0.05;
+        }
         return;
       }
 
