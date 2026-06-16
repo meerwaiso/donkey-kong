@@ -380,7 +380,7 @@
       },
 
       snow: {
-        id: 2,
+        id: 3,
         name: "Schnee",
         colors: {
           sky: "#4a6fa5",
@@ -426,7 +426,7 @@
       },
 
       desert: {
-        id: 3,
+        id: 2,
         name: "Wueste",
         colors: {
           sky: "#e17055",
@@ -473,8 +473,8 @@
       }
     };
 
-    // World keys array for indexed access
-    const WORLD_KEYS = ['jungle', 'snow', 'desert'];
+    // World keys array for indexed access (1=Dschungel, 2=Wueste, 3=Eis)
+    const WORLD_KEYS = ['jungle', 'desert', 'snow'];
 
     // Helper: Get world config by index (0=jungle, 1=snow, 2=desert)
     function getWorldConfig(worldIndex) {
